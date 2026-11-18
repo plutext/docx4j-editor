@@ -1,0 +1,68 @@
+name: Publish the editor's packages to npm
+
+# On a published GitHub release, publishes @docx4j/editor-model, @docx4j/editor-relay and @docx4j/editor-mcp, in that
+# order, through npm trusted publishing (no token is stored; RELEASING.md), as @docx4j/core-ts's push-to-npm.yml does.
+# The release tag must match the version the packages share. A package whose version is already on npm is skipped, so
+# a run that failed part way through can be re-run. @docx4j/editor, the site, is private and never published.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write # trusted publishing's OIDC token
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing needs npm 11.5.1 or later; the runner's Node 22 brings npm 10.
+      - run: npm install -g npm@latest
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: The release tag matches the packages' version
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="$(node -p "require('./packages/editor-model/package.json').version")"
+          for p in editor-relay editor-mcp editor; do
+            V="$(node -p "require('./packages/$p/package.json').version")"
+            if [ "$V" != "$VERSION" ]; then echo "::error::packages/$p is at $V, packages/editor-model at $VERSION"; exit 1; fi
+          done
+          echo "tag: $TAG, version: $VERSION"
+          if [ "${TAG#v}" != "$VERSION" ]; then echo "::error::release tag $TAG does not match version $VERSION"; exit 1; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - run: npm run check-licences
+      - run: npm run locales:check
+      - run: npm run typecheck
+      - run: npm run build
+      # The companion's tests run its built bin, so the build comes first (the root's test builds it again).
+      - run: npm test
+
+      - name: The build left the tree clean
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then git status --short; echo "::error::working tree changed"; exit 1; fi
+
+      # Each package's prepack writes its THIRD-PARTY-NOTICES.txt (git-ignored) before the tarball is made.
+      - name: Pack and publish, in dependency order
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          for p in editor-model editor-relay editor-mcp; do
+            if [ "$(npm view "@docx4j/$p@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
+              echo "@docx4j/$p@$VERSION is already on npm: skipped"
+              continue
+            fi
+            (cd "packages/$p" && npm pack && npm publish --access public "docx4j-$p-$VERSION.tgz")
+          done
