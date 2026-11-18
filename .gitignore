@@ -1,0 +1,19 @@
+node_modules
+# built from src/ by `npm run build` in each package
+/packages/*/dist
+# vitest and playwright output
+/packages/*/coverage
+/packages/*/test-results
+/packages/*/playwright-report
+# the benchmark's figures (ED-002 section 7.5), written by the Playwright benchmark and uploaded by CI
+/packages/editor/benchmark.json
+# the companion's rooms when it is started in the repository (its default --data)
+/.docx4j-editor-rooms
+# the relay's rooms when `npm run relay` starts it in the repository (its default --data)
+/rooms
+# Claude Code's personal and runtime state; the rest of .claude/ is shared project config, so never ignore the folder whole
+.claude/settings.local.json
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+# the third-party notices, written by `npm run check-licences` and each package's prepack (scripts/notices.mjs)
+/packages/*/THIRD-PARTY-NOTICES.txt

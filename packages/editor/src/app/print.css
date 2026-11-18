@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Printing (ED-006 section 3.2): the application's half. In print only the body's page column shows:
+   every other part of the application goes, and the containers that scroll on screen (one viewport
+   tall, the page area and the panels scrolling on their own) let the document run its full length,
+   or the print would hold one screen of it. The view's half is `view/print.css`. */
+@media print {
+  html, body { background: #fff; block-size: auto; overflow: visible; }
+  /* Anything outside the application: Monaco's overflow widgets, tooltips. */
+  body > :not(#root) { display: none !important; }
+
+  .app { display: block; block-size: auto; }
+  /* The app bar, banners, the ribbon, the find bar, the status bar, the palette and dialogs. */
+  .app > :not(.workspace) { display: none !important; }
+
+  .workspace { display: block; overflow: visible; }
+  /* The splitter and the side panels. */
+  .workspace > :not(.page-area) { display: none !important; }
+  .page-area { overflow: visible; padding: 0; }
+
+  /* The page's zoom is the screen's alone (ED-005 section 12.110). */
+  .page-and-margin { display: block; inline-size: auto; min-inline-size: 0; gap: 0; zoom: 1 !important; }
+  /* The comments margin. */
+  .page-and-margin > :not(.page-column) { display: none !important; }
+  /* The footnote panel under the page; the notes print from their own container (`.print-notes`). */
+  .page-column > :not([data-testid="editor"]):not(.print-notes) { display: none !important; }
+
+  /* The footnotes and endnotes after the body (section 3.6), as Word sets a note: a short rule above, the
+     label raised before the note's text. They follow the body on its last page, without a break of their own. */
+  .print-notes { display: block; margin-block-start: 12pt; }
+  .print-notes-heading { font: 600 10pt system-ui, sans-serif; margin-block: 12pt 4pt; padding-block-start: 4pt; border-block-start: 0.75pt solid #000; inline-size: 144pt; }
+  .print-notes-list { list-style: none; margin: 0; padding: 0; }
+  .print-note { display: flex; gap: 0.25em; break-inside: avoid; }
+  .print-note-label { flex: 0 0 auto; font-size: 0.7em; vertical-align: super; line-height: 1; padding-block-start: 0.2em; }
+  .print-note-body { flex: 1 1 auto; min-inline-size: 0; }
+
+  /* A comment's highlight in the text (app.css draws it with the margin): comments are not printed (section 3.5). */
+  .docx-editor .ProseMirror .comment { background: none; border-block-end: 0; }
+}
+@media screen {
+  .print-notes { display: none; }
+}

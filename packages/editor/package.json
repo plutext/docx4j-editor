@@ -1,0 +1,59 @@
+{
+  "name": "@docx4j/editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The docx editor application over @docx4j/editor-model: the ProseMirror view bound to the commands, the perspectives, and the file handling. A static site (ED-001 section 11 item 4).",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium",
+    "e2e:browsers": "playwright test -c playwright.browsers.config.ts",
+    "locales:check": "vite-node scripts/check-locales.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@docx4j/core-ts": "^0.9.0",
+    "@docx4j/editor-model": "0.1.0",
+    "@hocuspocus/provider": "^3.4.4",
+    "fontoxpath": "^3.34.0",
+    "monaco-editor": "^0.52.2",
+    "prosemirror-commands": "^1.7.0",
+    "prosemirror-gapcursor": "^1.4.1",
+    "prosemirror-keymap": "^1.2.2",
+    "prosemirror-model": "^1.25.0",
+    "prosemirror-state": "^1.4.3",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-transform": "^1.10.0",
+    "prosemirror-view": "^1.40.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sucrase": "^3.35.1",
+    "y-indexeddb": "^9.0.12",
+    "y-prosemirror": "^1.3.7",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.0"
+  },
+  "devDependencies": {
+    "@docx4j/editor-mcp": "^0.1.0",
+    "@docx4j/editor-relay": "^0.1.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "@playwright/test": "^1.55.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.0.0",
+    "fflate": "^0.8.2",
+    "jsdom": "^26.1.0",
+    "vite": "^7.1.0",
+    "ws": "^8.21.3"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

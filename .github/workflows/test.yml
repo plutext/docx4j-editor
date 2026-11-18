@@ -1,0 +1,45 @@
+# CI for the editor repository (ED-002 section 3.1): typecheck, build, tests and the licence
+# check, on Node 22, 24 and 26 (ED-001 section 11.1; Node 20 dropped 2026-11-17, past its end of life). The browser
+# suite runs in the Node 22 job only: the browser does not depend on Node's version, and the suite is the longest step
+# (ED-005 section 12.42). The actions are majors that run on the runners' Node 24.
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24, 26]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run check-licences
+      # The message files against the sources and each other (ED-003 section 12.2).
+      - run: npm run locales:check
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      # A revision's w:date is Word's local wall clock (core-ts 0.3.0, ED-005 section 12.26): the date tests in four time zones.
+      - run: npm run test:zones -w @docx4j/editor-model
+      - run: npx playwright install --with-deps chromium
+        if: matrix.node == 22
+        working-directory: packages/editor
+      - run: npm run e2e -w @docx4j/editor
+        if: matrix.node == 22
+        env:
+          CI: 'true'
+      # The benchmark's figures (ED-002 section 7.5): reported, never gating.
+      - uses: actions/upload-artifact@v7
+        if: always() && matrix.node == 22
+        with:
+          name: benchmark-node${{ matrix.node }}
+          path: packages/editor/benchmark.json
+          if-no-files-found: ignore

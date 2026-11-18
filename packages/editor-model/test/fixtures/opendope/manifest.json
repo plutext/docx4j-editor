@@ -1,0 +1,13 @@
+{
+  "_comment": "Template and data pairs for the Java oracle (ED-003 section 4.8): a template without a data file is processed against its own data part. Paths are relative to this directory; a golden is goldens/<basename of the template>.json.",
+  "pairs": [
+    { "template": "binding-simple.docx", "data": "binding-simple-data.xml" },
+    { "template": "../invoice.docx", "data": "invoice-data.xml" },
+    { "template": "../invoice2013.docx", "data": "invoice2013.xml" },
+    { "template": "conventions.docx" },
+    { "template": "non-element-bind.docx" },
+    { "template": "hyperlink-binding-test.docx" },
+    { "template": "picture.docx" },
+    { "template": "invoice_Saxon_XPath2.docx" }
+  ]
+}

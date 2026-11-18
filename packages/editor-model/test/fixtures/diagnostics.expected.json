@@ -1,0 +1,717 @@
+{
+  "HelloWordOnline.docx": {
+    "blocks": 1,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "MergeWithNext.docx": {
+    "blocks": 9,
+    "opaque": {
+      "fldChar": 6,
+      "fldSimple": 4,
+      "instrText": 2
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "authorless-contents.docx": {
+    "blocks": 9,
+    "opaque": {
+      "bookmarkEnd": 3,
+      "bookmarkStart": 3,
+      "fldChar": 9,
+      "instrText": 3
+    },
+    "tracked": 41,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "bookmark-spans-paragraphs.docx": {
+    "blocks": 3,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "comments-span.docx": {
+    "blocks": 4,
+    "opaque": {
+      "commentReference": 2
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 2
+  },
+  "comments-two.docx": {
+    "blocks": 2,
+    "opaque": {
+      "commentReference": 2
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 2
+  },
+  "comments/comments-for-word-word15-compat-word365.docx": {
+    "blocks": 64,
+    "opaque": {
+      "commentReference": 5
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 5
+  },
+  "comments/comments-for-word-word15-compat.docx": {
+    "blocks": 64,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 5
+  },
+  "comments/comments-for-word-word15-upgraded.docx": {
+    "blocks": 64,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 5
+  },
+  "comments/comments-for-word-word15.docx": {
+    "blocks": 65,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 5
+  },
+  "comments/comments-for-word-word2010.docx": {
+    "blocks": 65,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 5
+  },
+  "comments/comments-for-word-word365-compat.docx": {
+    "blocks": 64,
+    "opaque": {
+      "commentReference": 5
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 5
+  },
+  "comments/comments-for-word-word365-upgraded.docx": {
+    "blocks": 64,
+    "opaque": {
+      "commentReference": 5
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 5
+  },
+  "comments/comments-for-word.docx": {
+    "blocks": 64,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 5
+  },
+  "drawing-anchor.docx": {
+    "blocks": 1,
+    "opaque": {
+      "drawing": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "fonts-cjk-linebox.docx": {
+    "blocks": 36,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "fonts-embedded-subset-m365.docx": {
+    "blocks": 8,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "fonts-embedded-subset.docx": {
+    "blocks": 8,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "fonts-embedded.docx": {
+    "blocks": 8,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "fonts-hebrew-no-cs.docx": {
+    "blocks": 6,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "fonts-symbol-and-emoji.docx": {
+    "blocks": 6,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "footnote.docx": {
+    "blocks": 4,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "header-image.docx": {
+    "blocks": 1,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "header-no-rels.docx": {
+    "blocks": 5,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 2,
+    "comments": 0
+  },
+  "headers-footers.docx": {
+    "blocks": 325,
+    "opaque": {
+      "bookmarkEnd": 18,
+      "bookmarkStart": 18,
+      "fldChar": 264,
+      "instrText": 89
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 37,
+    "comments": 0
+  },
+  "headers.docx": {
+    "blocks": 23,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 1,
+    "comments": 0
+  },
+  "hyperlink_dupe.docx": {
+    "blocks": 3,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "fldChar": 3,
+      "instrText": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "images.docx": {
+    "blocks": 3,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "invoice.docx": {
+    "blocks": 10,
+    "opaque": {
+      "commentRangeStart": 1,
+      "commentReference": 2
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "invoice2013.docx": {
+    "blocks": 14,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "tblGrid": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "loadAndSave.docx": {
+    "blocks": 32,
+    "opaque": {
+      "bookmarkEnd": 4,
+      "bookmarkStart": 4,
+      "commentReference": 1,
+      "drawing": 1,
+      "fldChar": 15,
+      "instrText": 5,
+      "oMathPara": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 1,
+    "comments": 1
+  },
+  "mergefield.docx": {
+    "blocks": 9,
+    "opaque": {
+      "fldChar": 3,
+      "fldSimple": 8,
+      "instrText": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "nested-table.docx": {
+    "blocks": 3,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "normal-form-values.docx": {
+    "blocks": 5,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "notes-numbering.docx": {
+    "blocks": 6,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 1,
+    "comments": 0
+  },
+  "numbering-clauses.docx": {
+    "blocks": 11,
+    "opaque": {
+      "bookmarkEnd": 3,
+      "bookmarkStart": 3
+    },
+    "tracked": 1,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "numbering-stories.docx": {
+    "blocks": 11,
+    "opaque": {
+      "commentReference": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "odd-even-first-page.docx": {
+    "blocks": 6,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 1,
+    "comments": 0
+  },
+  "opendope/binding-simple.docx": {
+    "blocks": 2,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "opendope/conventions.docx": {
+    "blocks": 275,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 8,
+    "comments": 0
+  },
+  "opendope/hyperlink-binding-test.docx": {
+    "blocks": 8,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "opendope/invoice_Saxon_XPath2.docx": {
+    "blocks": 16,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentRangeStart": 1,
+      "commentReference": 2
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "opendope/non-element-bind.docx": {
+    "blocks": 3,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "opendope/picture.docx": {
+    "blocks": 5,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "opendope/xpaths-qualified-attributes.docx": {
+    "blocks": 12,
+    "opaque": {
+      "drawing": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "print-pages.docx": {
+    "blocks": 19,
+    "opaque": {},
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "review/measure-word15.docx": {
+    "blocks": 26,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 4
+    },
+    "tracked": 6,
+    "preserved": {},
+    "pageBreakMarkers": 1,
+    "comments": 3
+  },
+  "review/measure-word2010.docx": {
+    "blocks": 26,
+    "opaque": {
+      "commentReference": 4
+    },
+    "tracked": 3,
+    "preserved": {},
+    "pageBreakMarkers": 1,
+    "comments": 3
+  },
+  "review/review-for-word-word15-accepted.docx": {
+    "blocks": 44,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 2,
+    "comments": 5
+  },
+  "review/review-for-word-word15-rejected.docx": {
+    "blocks": 41,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 2,
+    "comments": 4
+  },
+  "review/review-for-word-word15.docx": {
+    "blocks": 46,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5,
+      "fldChar": 6,
+      "instrText": 2
+    },
+    "tracked": 54,
+    "preserved": {},
+    "pageBreakMarkers": 2,
+    "comments": 5
+  },
+  "review/review-for-word-word2010-accepted.docx": {
+    "blocks": 44,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 2,
+    "comments": 5
+  },
+  "review/review-for-word-word2010-rejected.docx": {
+    "blocks": 41,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 2,
+    "comments": 4
+  },
+  "review/review-for-word-word2010.docx": {
+    "blocks": 46,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 5,
+      "fldChar": 6,
+      "instrText": 2
+    },
+    "tracked": 53,
+    "preserved": {},
+    "pageBreakMarkers": 2,
+    "comments": 5
+  },
+  "review/review-for-word-word365-rejected.docx": {
+    "blocks": 41,
+    "opaque": {
+      "commentReference": 4
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 2,
+    "comments": 4
+  },
+  "review/review-for-word.docx": {
+    "blocks": 46,
+    "opaque": {
+      "commentReference": 5
+    },
+    "tracked": 53,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 5
+  },
+  "revisions/revisions-base.docx": {
+    "blocks": 55,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "revisions/revisions-word15.docx": {
+    "blocks": 59,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 3,
+      "moveFromRangeEnd": 1,
+      "moveFromRangeStart": 1,
+      "moveToRangeEnd": 1,
+      "moveToRangeStart": 1
+    },
+    "tracked": 38,
+    "preserved": {
+      "sectPrChange": 1,
+      "tblGridChange": 1,
+      "tblPrChange": 1,
+      "tcPrChange": 4
+    },
+    "pageBreakMarkers": 2,
+    "comments": 3
+  },
+  "revisions/revisions-word2010.docx": {
+    "blocks": 59,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1,
+      "commentReference": 2,
+      "moveFromRangeEnd": 1,
+      "moveFromRangeStart": 1,
+      "moveToRangeEnd": 1,
+      "moveToRangeStart": 1
+    },
+    "tracked": 38,
+    "preserved": {
+      "sectPrChange": 1,
+      "tblGridChange": 1,
+      "tblPrChange": 1,
+      "tcPrChange": 4
+    },
+    "pageBreakMarkers": 2,
+    "comments": 2
+  },
+  "sections-multiple.docx": {
+    "blocks": 9,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "styles-linerule.docx": {
+    "blocks": 3,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "tables.docx": {
+    "blocks": 39,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "theme-colour-cache.docx": {
+    "blocks": 122,
+    "opaque": {},
+    "tracked": 12,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "theme-colour-run.docx": {
+    "blocks": 8,
+    "opaque": {},
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "tracked-changes.docx": {
+    "blocks": 64,
+    "opaque": {
+      "bookmarkEnd": 1,
+      "bookmarkStart": 1
+    },
+    "tracked": 2,
+    "preserved": {},
+    "pageBreakMarkers": 3,
+    "comments": 0
+  },
+  "trailing-table.docx": {
+    "blocks": 5,
+    "opaque": {},
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 0,
+    "comments": 0
+  },
+  "w15-repeating-section.docx": {
+    "blocks": 152,
+    "opaque": {
+      "bookmarkEnd": 7,
+      "bookmarkStart": 7
+    },
+    "tracked": 0,
+    "preserved": {},
+    "pageBreakMarkers": 6,
+    "comments": 0
+  }
+}

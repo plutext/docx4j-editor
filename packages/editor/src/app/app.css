@@ -1,0 +1,588 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+
+body {
+  margin: 0;
+  background: #e9e9e9;
+}
+
+/* One viewport tall: the page area and the panel column scroll on their own, never the window. Never wider than the
+   viewport either (Jason, 2026-11-03, ED-005 section 12.111): in a narrow window the app bar had kept to one line and
+   overflowed, which made the window a horizontal scroller, and the caret reveal after Page Down then scrolled the whole
+   application sideways with the caret's horizontal position, the splitter with it. The bars wrap, and `clip` makes the
+   root and the workspace no scroll containers, so nothing can scroll them even when something inside overflows. */
+.app {
+  display: flex;
+  flex-direction: column;
+  block-size: 100vh;
+  overflow: clip;
+}
+
+.app-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-block: 0.4rem;
+  padding-inline: 0.75rem;
+  background: #fff;
+  border-block-end: 1px solid #d0d0d0;
+}
+
+.app-bar .title {
+  font-weight: 600;
+  margin-inline-end: 0.5rem;
+}
+
+.app-bar .name {
+  color: #444;
+}
+
+.banner {
+  padding-block: 0.4rem;
+  padding-inline: 0.75rem;
+  background: #fff8e1;
+  border-block-end: 1px solid #f0d58c;
+}
+
+.page-area {
+  overflow: auto;
+  min-block-size: 0;
+  padding-inline: 1rem;
+}
+
+.drop-zone {
+  margin: 3rem auto;
+  max-inline-size: 40rem;
+  padding: 3rem;
+  text-align: center;
+  border: 2px dashed #b0b0b0;
+  background: #fff;
+  color: #444;
+}
+
+.drop-zone.over {
+  border-color: #0563c1;
+}
+
+button {
+  font: inherit;
+}
+
+.app-bar .spacer { flex: 1 1 0.5rem; }
+/*
+ * The status line, in a bar of its own under the workspace: one line tall whatever it says, so a message
+ * never moves the page under a click. In the app bar, whose buttons it shared a line with, it was squeezed
+ * to nothing (ED-005 section 12.29).
+ */
+.status-bar { flex: 0 0 auto; display: flex; align-items: center; min-block-size: 1.6rem; padding-inline: 0.75rem; background: #f6f6f6; border-block-start: 1px solid #d0d0d0; font-size: 0.875rem; }
+.status-bar .status { color: #333; flex: 1 1 auto; min-inline-size: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Tracking's state, as Word shows it: the switch pressed and the status bar's "Track changes: On", each
+   with a dot, red while changes are tracked (ED-005 section 12.53). */
+.tracking-switch, .tracking-indicator { display: inline-flex; align-items: center; gap: 0.35rem; }
+.tracking-switch::before, .tracking-indicator::before { content: ''; flex: 0 0 auto; inline-size: 0.55rem; block-size: 0.55rem; border-radius: 50%; border: 1px solid #8a8a8a; background: transparent; }
+.tracking-switch.on, .tracking-indicator.on { color: #0b3d75; }
+.tracking-switch.on::before, .tracking-indicator.on::before { background: #c00000; border-color: #c00000; }
+.app-bar .tracking-switch.on { background: #dbe8f7; border: 1px solid #5b8fc7; border-radius: 3px; }
+.status-bar .tracking-indicator { flex: 0 0 auto; margin-inline-start: 0.75rem; padding-block: 0; padding-inline: 0.5rem; border: 1px solid transparent; border-radius: 3px; background: transparent; font: inherit; color: #555; cursor: pointer; white-space: nowrap; }
+.status-bar .tracking-indicator:hover { border-color: #c8c8c8; background: #fff; }
+.status-bar .tracking-indicator.on { color: #0b3d75; font-weight: 600; }
+.status-bar .tracking-indicator:focus-visible { outline: 2px solid #0563c1; outline-offset: 1px; }
+/* An action the status line offers (Format as Markdown after a plain paste, ED-005 section 12.66). */
+.status-bar .status-action { flex: 0 0 auto; margin-inline-start: 0.5rem; padding-block: 0; padding-inline: 0.5rem; border: 1px solid #5b8fc7; border-radius: 3px; background: #fff; font: inherit; color: #0b3d75; cursor: pointer; white-space: nowrap; }
+.status-bar .status-action:hover { background: #dbe8f7; }
+.status-bar .status-action:focus-visible { outline: 2px solid #0563c1; outline-offset: 1px; }
+/* The zoom control (ED-005 section 12.110), as Word's: minus, the percentage (a click returns to 100%), plus. */
+.status-bar .zoom { flex: 0 0 auto; display: inline-flex; align-items: center; margin-inline-start: 0.75rem; }
+.status-bar .zoom button { padding-block: 0; border: 1px solid transparent; border-radius: 3px; background: transparent; font: inherit; color: #555; cursor: pointer; white-space: nowrap; }
+.status-bar .zoom .zoom-step { padding-inline: 0.4rem; font-size: 1rem; line-height: 1; }
+.status-bar .zoom .zoom-level { padding-inline: 0.3rem; min-inline-size: 3.2rem; text-align: center; font-variant-numeric: tabular-nums; }
+.status-bar .zoom button:hover:not(:disabled) { border-color: #c8c8c8; background: #fff; }
+.status-bar .zoom button:disabled { color: #aaa; cursor: default; }
+.status-bar .zoom button:focus-visible { outline: 2px solid #0563c1; outline-offset: 1px; }
+.app-bar .perspectives button { padding-block: 0.2rem; padding-inline: 0.6rem; border: 1px solid #c8c8c8; background: #f6f6f6; }
+.app-bar .perspectives button.selected { background: #0563c1; color: #fff; border-color: #0563c1; }
+.app-bar .panels-menu { position: relative; }
+.app-bar .panels-menu summary { cursor: pointer; }
+.app-bar .panels-menu label { display: block; white-space: nowrap; }
+/* A menu's entries in one pane below its summary (each entry positioned on its own would stack on the same spot). Never
+   wider than the window; `placeMenuPane` moves it inside and sets its height, since the bar wraps and the button can land
+   anywhere (ED-005 section 12.112). Border-box, so that height is the whole pane's. */
+.app-bar .panels-menu[open] > .menu-pane { position: absolute; inset-inline-end: 0; z-index: 3; box-sizing: border-box; background: #fff; border: 1px solid #c8c8c8; padding: 0.5rem; min-inline-size: min(19rem, calc(100vw - 1rem)); max-inline-size: calc(100vw - 1rem); overflow: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 0.35rem; }
+.app-bar .menu-pane select { font: inherit; max-inline-size: 100%; }
+/* Options: groups with a heading, each entry on a row of its own, a text field under its label at the pane's width. */
+.app-bar .options-menu[open] > .menu-pane { min-inline-size: min(28rem, 90vw); max-inline-size: min(32rem, 90vw); padding: 0.6rem 0.75rem; gap: 0.5rem; }
+.app-bar .options-menu fieldset { border: 0; border-block-start: 1px solid #e3e3e3; margin: 0; padding: 0.35rem 0 0; min-inline-size: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.app-bar .options-menu fieldset:first-child { border-block-start: 0; padding-block-start: 0; }
+.app-bar .options-menu legend { padding: 0; margin-block-end: 0.1rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #666; }
+.app-bar .options-menu label { display: flex; flex-direction: column; gap: 0.2rem; white-space: normal; font-size: 0.9rem; }
+.app-bar .options-menu label.check { flex-direction: row; align-items: baseline; gap: 0.45rem; }
+.app-bar .options-menu label.check input { margin: 0; }
+.app-bar .options-menu input:not([type="checkbox"]), .options-menu select { inline-size: 100%; box-sizing: border-box; font: inherit; padding: 0.2rem 0.35rem; }
+.app-bar .options-menu .meta { margin: 0; font-size: 0.8rem; color: #666; }
+.dialog .field.page-size { grid-template-columns: auto 1fr; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  padding-block: 0.25rem 0;
+  padding-inline: 0.5rem;
+  background: #fafafa;
+  border-block-end: 1px solid #d0d0d0;
+}
+/* The ribbon (Word's and ONLYOFFICE's Home tab): groups of two rows over a caption, a rule between groups. */
+.toolbar .ribbon-group { display: flex; flex-direction: column; padding-inline: 0.45rem; border-inline-end: 1px solid #dcdcdc; }
+.toolbar .ribbon-group:last-child { border-inline-end: none; }
+.toolbar .ribbon-body { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 0.2rem; min-block-size: 4.2rem; }
+.toolbar .ribbon-row { display: flex; align-items: center; gap: 0.1rem; }
+.toolbar .ribbon-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); gap: 0.2rem 0.1rem; align-content: center; justify-content: start; }
+.toolbar .ribbon-caption { position: relative; display: flex; justify-content: center; align-items: center; min-block-size: 1.15rem; padding-inline: 1rem; font-size: 0.72rem; color: #5a5a5a; white-space: nowrap; }
+.toolbar .ribbon-launcher { position: absolute; inset-inline-end: 0; inline-size: 1rem; block-size: 1rem; padding: 0; border: 1px solid transparent; border-radius: 2px; background: transparent; font-size: 0.7rem; line-height: 1; color: #5a5a5a; }
+.toolbar .ribbon-launcher:hover { border-color: #c8c8c8; background: #fff; }
+.toolbar .tool { min-inline-size: 1.9rem; block-size: 1.75rem; padding-block: 0; padding-inline: 0.35rem; border: 1px solid transparent; background: transparent; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; }
+.toolbar .tool:hover { border-color: #c8c8c8; background: #fff; }
+.toolbar .tool.pressed { background: #dbe8f7; border-color: #9db8d6; }
+.toolbar .tool:focus-visible, .app-bar button:focus-visible, .toolbar select:focus-visible, .toolbar .ribbon-launcher:focus-visible { outline: 2px solid #0563c1; outline-offset: 1px; }
+.toolbar .tool .icon { display: block; }
+.toolbar select { max-inline-size: 11rem; block-size: 1.75rem; }
+.toolbar select.font-name { inline-size: 9.5rem; }
+.toolbar select.font-size { inline-size: 3.6rem; }
+.toolbar select.style-picker { inline-size: 11rem; }
+/* A paragraph style's entry in its look (stylePreview). Firefox draws an option's own font; Chromium,
+   whose native list draws none, does with the customizable select (appearance: base-select). */
+.toolbar select.style-picker option { padding-block: 0.15rem; padding-inline: 0.5rem; }
+@supports (appearance: base-select) {
+  .toolbar select.style-picker, .toolbar select.style-picker::picker(select) { appearance: base-select; }
+  .toolbar select.style-picker { border: 1px solid #b8b8b8; border-radius: 3px; background: #fff; padding-block: 0; padding-inline: 0.45rem; font: inherit; }
+  .toolbar select.style-picker::picker(select) { border: 1px solid #b8b8b8; background: #fff; max-block-size: 26rem; overflow-y: auto; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
+  .toolbar select.style-picker option:checked { background: #dbe8f7; }
+  .toolbar select.style-picker option:hover { background: #eef4fb; }
+}
+/* The highlight and the font colour: an icon over its colour bar, the native picker laid over it, invisible. */
+.toolbar .overlay-tool { position: relative; cursor: pointer; }
+/* A split button (the highlighter): the main part and a narrow arrow, one outline around both. */
+.toolbar .split-tool { display: inline-flex; align-items: stretch; }
+.toolbar .split-tool > .tool { border-start-end-radius: 0; border-end-end-radius: 0; }
+.toolbar .split-tool > .split-arrow { min-inline-size: 0.9rem; padding-inline: 0.1rem; font-size: 0.7rem; border-start-start-radius: 0; border-end-start-radius: 0; margin-inline-start: -1px; }
+.toolbar .overlay-tool > select, .toolbar .overlay-tool > input { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; margin: 0; padding: 0; border: none; opacity: 0; cursor: pointer; }
+.toolbar .overlay-tool:focus-within { outline: 2px solid #0563c1; outline-offset: 1px; }
+.toolbar .swatch-icon { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; }
+.toolbar .swatch-icon .glyph { font-size: 0.85rem; }
+.toolbar .swatch-icon .bar { inline-size: 1.1rem; block-size: 0.22rem; margin-block-start: 0.1rem; }
+.toolbar .swatch-icon .bar.none { border: 1px dashed #9a9a9a; block-size: 0.12rem; }
+/* A menu in the ribbon (Row shading, ED-005 section 12.128): its summary a tool, its pane hung under it, kept inside
+   the window by placeMenuPane. */
+.toolbar .tool-menu { position: relative; }
+.toolbar .tool-menu > summary { list-style: none; cursor: pointer; gap: 0.1rem; }
+.toolbar .tool-menu > summary::-webkit-details-marker { display: none; }
+.toolbar .tool-menu[open] > summary { background: #dbe8f7; border-color: #9db8d6; }
+.toolbar .tool-menu .menu-arrow { font-size: 0.65rem; }
+.toolbar .tool-menu[open] > .menu-pane { position: absolute; inset-inline-start: 0; inset-block-start: calc(100% + 2px); z-index: 3; box-sizing: border-box; inline-size: max-content; max-inline-size: calc(100vw - 1rem); overflow: auto; background: #fff; border: 1px solid #c8c8c8; padding: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: flex; flex-direction: column; align-items: stretch; gap: 0.45rem; }
+/* A swatch menu (Row shading, the highlighter's arrow, the font colour): its columns from --swatch-columns. */
+.toolbar .swatch-menu .swatches { display: grid; grid-template-columns: repeat(var(--swatch-columns, 7), 1.35rem); gap: 0.3rem; }
+.toolbar .swatch-menu .swatch { inline-size: 1.35rem; block-size: 1.35rem; padding: 0; border: 1px solid #a8a8a8; border-radius: 2px; cursor: pointer; }
+.toolbar .swatch-menu .swatch:hover, .toolbar .swatch-menu .swatch:focus-visible { outline: 2px solid #0563c1; outline-offset: 1px; }
+.toolbar .swatch-menu .swatch.pressed { outline: 2px solid #1d1d1d; outline-offset: 1px; }
+.toolbar .swatch-menu .more { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; white-space: nowrap; }
+.toolbar .swatch-menu .more input { inline-size: 2.4rem; block-size: 1.5rem; padding: 0; }
+/* The highlighter's arrow is a swatch menu whose summary is the split button's arrow. */
+.toolbar .split-tool > .tool-menu { display: inline-flex; }
+.toolbar .split-tool > .tool-menu > .split-arrow { min-inline-size: 0.9rem; padding-inline: 0.1rem; font-size: 0.7rem; border-start-start-radius: 0; border-end-start-radius: 0; margin-inline-start: -1px; block-size: 100%; }
+
+.workspace { display: grid; grid-template-columns: 1fr; flex: 1 1 auto; min-block-size: 0; overflow: clip; }
+.workspace.with-panels { grid-template-columns: minmax(0, 1fr) auto 460px; }
+/* The side panel (DeveloperPanel.tsx): a tab strip that stays put, the tab's content scrolling under it. */
+.panels { display: flex; flex-direction: column; background: #fff; min-block-size: 0; min-inline-size: 0; }
+.panels .tab-strip { display: flex; flex-wrap: wrap; gap: 0; border-block-end: 1px solid #d0d0d0; background: #f6f6f6; flex: 0 0 auto; }
+.panels .tab-strip button { padding-block: 0.35rem; padding-inline: 0.75rem; border: none; border-block-end: 2px solid transparent; background: transparent; color: #444; cursor: pointer; }
+.panels .tab-strip button:hover { background: #ececec; }
+.panels .tab-strip button.selected { color: #000; border-block-end-color: #0563c1; background: #fff; }
+.panels .tab-strip button:focus-visible { outline: 2px solid #0563c1; outline-offset: -2px; }
+.panels .tab-content { flex: 1 1 auto; min-block-size: 0; overflow: auto; padding: 0.75rem; }
+.panels .tab-content[hidden] { display: none; }
+.panels .tab-content > .panel + .panel { margin-block-start: 1rem; border-block-start: 1px solid #e4e4e4; padding-block-start: 0.75rem; }
+.splitter { inline-size: 6px; cursor: col-resize; background: #d0d0d0; touch-action: none; }
+.splitter:hover, .splitter:focus-visible { background: #0563c1; outline: none; }
+.panel h2 { font-size: 0.9rem; margin-block: 0 0.5rem; }
+.panel pre { font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; margin: 0; }
+.panel dl { display: grid; grid-template-columns: auto auto; gap: 0.2rem 0.75rem; margin-block: 0 0.5rem; }
+.panel dd { margin: 0; }
+/* The read-only elements by kind (DiagnosticList.tsx): a row per kind, opened to its addresses; long lists scroll in a box of their own, so a panel's heading and the panes above it stay in reach. */
+.diagnostic-list { margin-block: 0.4rem 0; max-block-size: 40vh; overflow: auto; font-size: 0.85rem; }
+.banner .diagnostic-list { max-block-size: 30vh; }
+.diagnostic-list .filter { display: block; margin-block-end: 0.3rem; }
+.diagnostic-kind > summary { cursor: pointer; padding-block: 0.1rem; }
+.diagnostic-kind > summary .count { color: #666; }
+.diagnostic-kind ul { margin: 0.15rem 0 0.4rem; padding-inline-start: 1.6rem; }
+.diagnostic-list .address { font-family: monospace; font-size: 0.85em; }
+/* A folding section (Fold.tsx): the heading in the summary with a twisty of its own, the marker's default look dropped. */
+.fold > details > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 0.35rem; }
+.fold > details > summary::-webkit-details-marker { display: none; }
+.fold > details > summary::before { content: '▾'; color: #666; font-size: 0.85rem; flex: 0 0 auto; }
+.fold > details:not([open]) > summary::before { content: '▸'; }
+.fold > details > summary > h2, .fold > details > summary > h3 { margin-block: 0; }
+.fold > details[open] > summary { margin-block-end: 0.4rem; }
+/* A group's fold keeps the spacing its heading had. */
+div.fold { margin-block-start: 0.6rem; }
+.fold > details > summary:focus-visible { outline: 2px solid #0563c1; outline-offset: 1px; }
+button.link { background: none; border: none; color: #0563c1; text-decoration: underline; cursor: pointer; padding: 0; }
+
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.25); display: flex; align-items: flex-start; justify-content: center; padding-block-start: 10vh; z-index: 10; }
+.dialog, .palette { background: #fff; border: 1px solid #c8c8c8; box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 1rem; min-inline-size: 22rem; max-inline-size: 90vw; }
+.dialog h2 { margin-block: 0 0.75rem; font-size: 1rem; }
+/* Scoped to the dialogs: the document's field results carry the class `field` too (ED-005 section 12.98). */
+.dialog .field { display: grid; grid-template-columns: 1fr 7rem auto; gap: 0.5rem; align-items: center; margin-block-end: 0.4rem; }
+.dialog .field .unit { color: #666; }
+/* A dialog's groups (the Insert Table dialog, ED-005 section 12.83): a boxed group with its legend, each choice on a
+   line of its own, an inline field beside a choice. */
+.dialog fieldset { border: 1px solid #ddd; padding: 0.5rem 0.75rem 0.3rem; margin: 0 0 0.6rem; min-inline-size: 0; }
+.dialog fieldset legend { font-size: 0.85rem; color: #444; padding-inline: 0.25rem; }
+.dialog fieldset label.check { display: flex; align-items: center; gap: 0.45rem; margin-block-end: 0.4rem; }
+.dialog fieldset label.check input[type=radio], .dialog fieldset label.check input[type=checkbox] { margin: 0; }
+.dialog fieldset label.check input.inline { inline-size: 5rem; margin-inline-start: 0.5rem; }
+.dialog .field.presets { grid-template-columns: 1fr auto auto; }
+.dialog .field.presets button[aria-pressed=true] { font-weight: 600; border-color: #888; }
+.dialog-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-block-start: 0.75rem; }
+.tab-stops { border: 1px solid #ddd; padding: 0.5rem; margin-block-start: 0.5rem; }
+.tab-stops legend { font-size: 0.85rem; color: #444; }
+.tab-stop { display: grid; grid-template-columns: 5rem auto 1fr 1fr auto auto; gap: 0.4rem; align-items: center; margin-block-end: 0.3rem; }
+.tab-stop .meta { font-size: 0.8rem; color: #666; }
+.palette input[type=text] { inline-size: 100%; box-sizing: border-box; padding: 0.4rem; font: inherit; margin-block-end: 0.5rem; }
+.palette ul { list-style: none; margin: 0; padding: 0; max-block-size: 50vh; overflow: auto; }
+.palette li { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 0.75rem; padding-block: 0.25rem; padding-inline: 0.4rem; cursor: pointer; align-items: baseline; }
+.palette li .insert { font-size: 0.8em; visibility: hidden; }
+.palette li .badge.editor-only { background: #9a9a9a; }
+/* The argument form: the description in full under each field, not as a placeholder the field cuts short (Jason, 2026-09-25). */
+.palette-field { margin-block-end: 0.6rem; }
+.palette-field label { display: grid; grid-template-columns: 6rem 1fr; gap: 0.5rem; align-items: center; }
+.palette-field input, .palette-field select { inline-size: 100%; box-sizing: border-box; font: inherit; }
+.palette-field .meta { margin: 0.15rem 0 0 6.5rem; font-size: 0.8rem; color: #555; }
+.palette li.selected .insert, .palette li:hover .insert { visibility: visible; }
+.palette li.selected { background: #dbe8f7; }
+.palette li .name { color: #666; font-family: monospace; font-size: 0.85em; }
+.palette kbd { font-family: inherit; color: #666; }
+
+.banner.recovery button { margin-inline-start: 0.5rem; }
+.self-check-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; max-block-size: 50vh; overflow: auto; }
+.self-check-diff h3 { font-size: 0.85rem; margin-block: 0 0.25rem; }
+.self-check-diff pre { font-size: 0.7rem; white-space: pre-wrap; word-break: break-all; background: #f6f6f6; padding: 0.4rem; margin: 0; }
+.dialog.self-check { max-inline-size: 70rem; }
+
+.crumbs { font-family: monospace; font-size: 0.85em; margin-block-end: 0.4rem; }
+.crumbs .crumb.current { font-weight: 700; text-decoration: none; }
+.pane-actions { display: flex; gap: 0.5rem; align-items: center; margin-block: 0.3rem; flex-wrap: wrap; }
+/* XML in Monaco (ED-005 section 3.8): reveal codes, the Styles tab and the parts panel edit in it; the user can drag it taller. */
+.xml-code { inline-size: 100%; block-size: 18rem; min-block-size: 8rem; border: 1px solid #c8c8c8; background: #fff; resize: vertical; overflow: hidden; }
+.xml-code[aria-invalid="true"] { border-color: #b00020; }
+.xml-code.compact { block-size: 10rem; min-block-size: 5rem; }
+/* Reveal codes in a table (ED-005 section 12.99): the caret's cell marked, the rows and cells around it folded. */
+.xml-code .xml-focus { background: #fff3bf; }
+.xml-code .xml-focus-gutter { border-inline-start: 3px solid #e0a800; margin-inline-start: 2px; }
+/* Under every XML editor: the caret's line and column, and the code point of the character after it (a U+200B is otherwise invisible). */
+.xml-caret { display: flex; gap: 1rem; font-family: monospace; font-size: 0.75rem; color: #555; margin-block: 0.2rem 0.3rem; min-block-size: 1em; }
+.panel .error { color: #b00020; }
+.api-script h3, .part-content h3 { font-size: 0.85rem; margin-block: 0.5rem 0.25rem; }
+.console-editor { block-size: 16rem; border: 1px solid #d0d0d0; }
+.console-output { list-style: none; margin: 0; padding: 0; max-block-size: 14rem; overflow: auto; font-size: 0.8rem; }
+.console-output li { border-block-end: 1px solid #eee; padding-block: 0.15rem; }
+.console-output li.error { color: #b00020; }
+.console-output li.warn { color: #8a5a00; }
+.console-output li.result { color: #0b5d1e; }
+.console-output pre { margin: 0; white-space: pre-wrap; }
+.parts-tree { max-block-size: 40vh; overflow: auto; font-size: 0.85rem; }
+.parts-tree ul { list-style: none; margin: 0; padding-inline-start: 1.1rem; }
+.parts-tree > ul { padding-inline-start: 0; }
+.parts-tree .tree-row { display: flex; gap: 0.4rem; align-items: baseline; white-space: nowrap; }
+.parts-tree .twisty { inline-size: 1.1rem; flex: 0 0 1.1rem; background: none; border: none; padding: 0; color: #666; cursor: pointer; text-align: center; }
+.parts-tree .target { color: #444; overflow: hidden; text-overflow: ellipsis; }
+.parts-tree li.repeated > .tree-row .link { color: #6b6b6b; }
+.parts-tree h3 { font-size: 0.8rem; margin-block: 0.6rem 0.2rem; color: #666; }
+.panel .meta { color: #666; font-size: 0.8em; font-weight: normal; }
+.part-rels pre { max-block-size: 20vh; }
+.part-content img { max-inline-size: 100%; }
+.outline-panel .table-box, .xpath-panel .table-box { max-block-size: 40vh; overflow: auto; }
+.outline-panel table, .xpath-panel table { border-collapse: collapse; inline-size: 100%; font-size: 0.8rem; }
+.outline-panel thead th, .xpath-panel thead th { position: sticky; inset-block-start: 0; background: #fff; }
+.outline-panel th, .outline-panel td, .xpath-panel th, .xpath-panel td { text-align: start; padding-block: 0.1rem; padding-inline: 0.3rem; vertical-align: top; }
+.outline-panel td.text, .xpath-panel td.text { color: #444; }
+/* Select by XPath (ED-005 section 3.5): the expression, the part, Select; a hit placed only at its edited block is in italics. */
+.xpath-panel .xpath-form { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-block-end: 0.4rem; }
+.xpath-panel .xpath-form input { flex: 1 1 14rem; font-family: monospace; font-size: 0.85rem; }
+.xpath-panel tr.approximate td { font-style: italic; }
+.link.current { font-weight: 700; }
+
+/* Footnotes and endnotes below the page (ED-002 section 7.2): the page's width, the document's look. */
+.footnotes-panel { inline-size: 595pt; max-inline-size: 100%; margin-inline: auto; margin-block: 0 1.5rem; padding-block: 0.5rem; padding-inline: 72pt; box-sizing: border-box; background: #fff; box-shadow: 0 0 0 1px #d0d0d0; }
+.footnotes-panel h2 { font-size: 0.85rem; font-family: system-ui, sans-serif; color: #444; margin-block: 0.5rem 0.4rem; border-block-start: 1px solid #888; inline-size: 30%; padding-block-start: 0.3rem; }
+.footnotes-panel ol.notes { list-style: none; margin: 0; padding: 0; }
+/* The number sits on the first line's baseline: a note style's space-before (Word's endnote text has 9pt) moves the text, and the number must move with it, as it does inside Word's paragraph. */
+.footnotes-panel li.note { display: grid; grid-template-columns: 2rem 1fr auto; gap: 0.25rem; align-items: baseline; padding-block: 0.15rem; transition: background 0.6s; }
+.footnotes-panel .note-delete { background: none; border: none; color: #999; cursor: pointer; font-size: 0.9em; padding-inline: 0.3rem; visibility: hidden; }
+.footnotes-panel li.note:hover .note-delete, .footnotes-panel li.note:focus-within .note-delete { visibility: visible; }
+.footnotes-panel .note-delete:hover { color: #b00; }
+.footnotes-panel li.note.flash { background: #fff3b0; transition: none; }
+.footnotes-panel li.note.orphan { color: #777; }
+.footnotes-panel .note-number { background: none; border: none; color: #0563c1; cursor: pointer; font-size: 0.8em; position: relative; top: -0.35em; padding: 0; text-align: start; }
+.footnotes-panel .note-number:disabled { color: #999; cursor: default; }
+.footnotes-panel .note-body .ProseMirror:focus-within { outline: 1px dotted #9db8d6; outline-offset: 2px; }
+/* A header or footer being edited (ED-003 section 6.4): the body dims, as Word greys it. */
+.page-column.editing-header .docx-editor.body > .ProseMirror > :not(.page-start):not(.page-boundary):not(.page-end) { opacity: 0.5; }
+.docx-editor .boundary-story .story-view.editable .ProseMirror:focus-within { outline: 1px dotted #9db8d6; outline-offset: 2px; }
+
+/* Comments in the margin (ED-002 section 7.3): a column beside the page, bubbles at their anchors' heights. The page
+   keeps its width and the column does not shrink (ED-005 section 12.39): when the two are wider than the page area it
+   scrolls, and `safe` centring keeps the overflow on the end side, where it can be scrolled to. */
+.page-and-margin { display: flex; justify-content: safe center; align-items: flex-start; gap: 0.75rem; inline-size: max-content; min-inline-size: 100%; }
+.page-and-margin > .page-column { flex-shrink: 0; }
+.comments-margin { position: relative; inline-size: 18rem; flex: 0 0 18rem; margin-block: 1rem; }
+.comment-bubble { position: absolute; inset-inline-start: 0; inline-size: 100%; box-sizing: border-box; background: #fff; border: 1px solid #d0d0d0; border-inline-start: 3px solid var(--comment-color, #888); box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 0.4rem 0.5rem; padding-inline-start: calc(0.5rem + 4px); font-size: 0.85rem; }
+/* The author's swatch along the edge: the colour, and the pattern (section 9.5) over it. */
+.comment-bubble::before { content: ''; position: absolute; inset-block: 0; inset-inline-start: 0; inline-size: 5px; background-color: var(--comment-color, #888); background-image: var(--comment-pattern, none); pointer-events: none; }
+.comment-bubble.orphan { opacity: 0.7; }
+.comment-bubble details > summary { cursor: pointer; }
+.comment-head { display: flex; gap: 0.4rem; align-items: baseline; background: none; border: none; padding: 0; font: inherit; cursor: pointer; text-align: start; inline-size: 100%; }
+.comment-head:disabled { cursor: default; }
+.comment-head .initials { display: inline-block; min-inline-size: 1.6em; line-height: 1.6em; text-align: center; border-radius: 50%; background: var(--comment-color, #888); color: #fff; font-size: 0.75em; }
+.comment-head .meta { color: #666; font-size: 0.85em; }
+.comment-reply { margin-inline-start: 1rem; margin-block-start: 0.4rem; border-inline-start: 2px solid #e0e0e0; padding-inline-start: 0.4rem; }
+.comment-body.docx-editor { font-size: 0.85rem; }
+/* E4.e (ED-005 section 7.5): one's own comment edited in place, and the thread's buttons. */
+.comment-body[data-editable="true"] { border: 1px dashed transparent; border-radius: 3px; }
+.comment-body[data-editable="true"]:focus-within { border-color: #9aa0a6; }
+.comment-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-block-start: 0.2rem; }
+.comment-actions button { font: inherit; font-size: 0.8em; background: none; border: 1px solid transparent; border-radius: 3px; color: #0b57d0; cursor: pointer; padding: 0.05rem 0.3rem; }
+.comment-actions button:hover, .comment-actions button:focus-visible { border-color: #c0c4c9; }
+.comment-reply-box { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-block-start: 0.3rem; }
+.comment-reply-box textarea { flex: 1 1 100%; box-sizing: border-box; font: inherit; resize: vertical; }
+.docx-editor .ProseMirror .comment { background: color-mix(in srgb, var(--comment-color, #f5c542) 22%, transparent); border-block-end: 2px solid var(--comment-color, #f5c542); }
+
+/* The Template perspective (ED-003 section 4.9): the offer banner and the Control, Controls and Data tabs. */
+.banner.offer button { margin-inline-start: 0.5rem; }
+.control-group { margin-block-start: 0.6rem; }
+.control-group h3, .data-panel h3, .controls-tree h3 { font-size: 0.85rem; margin-block: 0.6rem 0.2rem; }
+.control-group dl { grid-template-columns: 6.5rem minmax(0, 1fr); align-items: baseline; }
+.control-group dd label { display: block; }
+.control-group input[type=text], .bind-form input[type=text], .role-form input[type=text], .xpath-box input[type=text] { inline-size: 100%; box-sizing: border-box; font: inherit; font-size: 0.85rem; }
+.control-group code, .data-panel code { font-size: 0.8rem; word-break: break-all; }
+.tag-params, .kind-fields, .warnings { margin-block: 0.2rem 0; padding-inline-start: 1rem; font-size: 0.8rem; }
+.tag-params li.processor-set, .processor-set { color: #8a5a00; }
+.warnings li { color: #8a5a00; }
+.bind-form label, .role-form label, .xpath-box label { display: block; margin-block: 0.25rem; font-size: 0.85rem; }
+.bind-form select, .role-form select, .xpath-box select { max-inline-size: 100%; font-size: 0.85rem; }
+.new-data-part { margin-block: 0.4rem; padding: 0.4rem 0.6rem; border: 1px dashed #bbb; border-radius: 4px; }
+.new-data-part h4 { margin: 0 0 0.2rem; font-size: 0.85rem; }
+.new-data-part label { display: block; margin-block: 0.25rem; font-size: 0.85rem; }
+.new-data-part input[type=text], .new-data-part textarea { inline-size: 100%; box-sizing: border-box; font: inherit; font-size: 0.85rem; }
+.new-data-part textarea { font-family: ui-monospace, monospace; }
+.new-data-part button { margin-block: 0.2rem 0.4rem; }
+.controls-tree .control-list { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
+.controls-tree .control-row { display: flex; gap: 0.35rem; align-items: baseline; flex-wrap: wrap; padding-block: 0.1rem; }
+.controls-tree .control-row.current { background: #eef4fb; }
+.controls-tree .form { font-size: 0.7rem; color: #fff; background: #888; border-radius: 2px; padding-inline: 0.25rem; }
+.controls-tree .form-row, .controls-tree .form-cell { background: #6b8fb3; }
+/* Role badges, in the page's colours (editor.css): the Controls tree, the OpenDoPE table's uses, the Data tab's entry list. */
+.badge { font-size: 0.72rem; border-radius: 2px; padding-inline: 0.25rem; margin-inline-end: 0.25rem; color: #fff; background: #7aa7d6; white-space: nowrap; }
+.badge-condition { background: #2e8b57; }
+.badge-repeat { background: #8a4fbf; }
+.badge-bound { background: #1f6fb2; }
+.badge-position, .badge-component { background: #b8860b; }
+/* A repeat's entry stands out in the OpenDoPE table: its id in the repeat colour. */
+.od-table tr.use-repeat > td:first-child { box-shadow: inset 3px 0 0 #8a4fbf; }
+.controls-tree .story-controls .label { color: #444; }
+.xpath-box { border: 1px solid #e0e0e0; padding: 0.4rem 0.5rem; margin-block-end: 0.5rem; }
+.xpath-result { margin-block-start: 0.3rem; font-size: 0.8rem; }
+.xpath-result ul { margin: 0.2rem 0 0; padding-inline-start: 1rem; }
+.part-tree { font-size: 0.85rem; margin-block-end: 0.4rem; }
+.part-tree ul { list-style: none; margin: 0; padding-inline-start: 1.1rem; }
+.part-tree > ul { padding-inline-start: 0.4rem; }
+.part-tree .tree-row { display: flex; gap: 0.3rem; align-items: baseline; flex-wrap: wrap; }
+.part-tree .twisty { inline-size: 1rem; flex: 0 0 1rem; background: none; border: none; padding: 0; color: #666; cursor: pointer; text-align: center; }
+.part-tree .part-label { color: #444; }
+.part-tree .copy-xpath { margin-inline-start: auto; font-size: 0.85em; }
+.part-tree .view-switch { display: inline-flex; gap: 0.4rem; font-size: 0.85em; }
+.part-tree .tree-row > .part-label + .view-switch { margin-inline-start: auto; }
+.part-tree .view-switch [aria-pressed="true"] { font-weight: 600; text-decoration: none; color: inherit; }
+.part-tree .node-name { color: #1a3d7c; cursor: grab; font-family: monospace; }
+.part-tree .node-name:active { cursor: grabbing; }
+.part-tree .attribute { font-family: monospace; font-size: 0.8rem; }
+.part-tree .node-value { background: #f6f6f6; border: 1px dashed transparent; padding-inline: 0.25rem; cursor: text; font: inherit; text-align: start; max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.part-tree .node-value:hover { border-color: #c8c8c8; }
+/* A node holding image data, and a picture control's picture in the Control tab (ED-005 section 12.117). */
+.part-tree .node-thumbnail { block-size: 2.5em; max-inline-size: 6em; object-fit: contain; vertical-align: middle; margin-inline-end: 0.25rem; border: 1px solid #ddd; background: #fff; }
+.control-panel .picture-thumbnail { max-block-size: 6em; max-inline-size: 100%; object-fit: contain; vertical-align: middle; border: 1px solid #ddd; background: #fff; }
+.part-tree .node-actions { visibility: hidden; margin-inline-start: auto; }
+.part-tree .tree-row:hover .node-actions, .part-tree .tree-row:focus-within .node-actions { visibility: visible; }
+.part-tree .node-actions .link { text-decoration: none; padding-inline: 0.2rem; }
+.part-tree li.hit > .tree-row { background: #fff3b0; }
+.part-tree .add-node input { font: inherit; font-size: 0.85rem; }
+.od-part h4, .od-form h4 { font-size: 0.8rem; margin-block: 0.4rem 0.15rem; }
+/* The OpenDoPE tab (OpenDopePanel.tsx): the root's attributes, the entries and conditions as tables, the forms, the operator tree. */
+.od-root { font-size: 0.85rem; }
+.od-section { margin-block-start: 0.6rem; }
+.od-table { border-collapse: collapse; inline-size: 100%; font-size: 0.78rem; }
+.od-table th, .od-table td { text-align: start; vertical-align: top; padding-block: 0.15rem; padding-inline: 0.3rem; border-block-end: 1px solid #eee; }
+.od-table th { color: #666; font-weight: normal; }
+.od-table td.actions { white-space: nowrap; }
+.od-table td.actions .link { margin-inline-end: 0.4rem; }
+.od-form { border: 1px solid #e0e0e0; padding: 0.4rem 0.5rem; margin-block-start: 0.4rem; }
+.od-form label { display: block; margin-block: 0.25rem; font-size: 0.85rem; }
+.od-form input[type=text] { inline-size: 100%; box-sizing: border-box; font: inherit; font-size: 0.85rem; }
+.od-form select { max-inline-size: 100%; font-size: 0.85rem; }
+.warning { color: #8a5a00; }
+.operand-tree { margin-block: 0.4rem; font-size: 0.85rem; }
+.operand-row { display: flex; gap: 0.35rem; align-items: baseline; flex-wrap: wrap; }
+.operand-row select { max-inline-size: 18rem; font-size: 0.85rem; }
+.operands { list-style: none; margin: 0.2rem 0 0; padding-inline-start: 1.2rem; border-inline-start: 2px solid #e0e0e0; }
+.operands > li { display: flex; gap: 0.3rem; align-items: flex-start; margin-block: 0.2rem; }
+.operand-tools { white-space: nowrap; }
+.operand-tools .link { text-decoration: none; padding-inline: 0.15rem; }
+.od-list { margin: 0; padding-inline-start: 1rem; font-size: 0.8rem; }
+.od-list li { margin-block: 0.1rem; }
+
+/* Format and Styles tabs (FormatPanel.tsx, StylesPanel.tsx). */
+.format-group h3, .style-chain h3, .style-xml h3 { font-size: 0.85rem; margin-block: 0.6rem 0.2rem; }
+.property-rows { list-style: none; margin: 0; padding-inline-start: 0; font-family: monospace; font-size: 0.78rem; }
+.property-rows .property-rows { padding-inline-start: 1.2rem; }
+.property-rows .element { color: #1a3d7c; }
+.property-rows .attr-name { color: #7a4a00; }
+.property-rows .attr-value { color: #0b5d1e; }
+.styles-panel ol.styles { margin: 0; padding-inline-start: 1.4rem; }
+.style-xml pre { max-block-size: 30vh; overflow: auto; }
+/* The Preview tab (PreviewPanel.tsx): the story with the page's width scaled to the panel. */
+.preview-page { background: #f4f4f4; padding: 0.5rem; overflow: auto; }
+.preview-page .docx-editor.story-view { background: #fff; padding-block: 0.5rem; padding-inline: 72pt; box-shadow: 0 0 0 1px #d0d0d0; inline-size: 595pt; max-inline-size: none; }
+.part-tree .attr { background: none; border: none; padding: 0; font: inherit; cursor: pointer; }
+.part-tree .attr:disabled { cursor: default; }
+.part-tree .attr-remove { text-decoration: none; padding-inline: 0.15rem; visibility: hidden; }
+.part-tree .tree-row:hover .attr-remove, .part-tree li.selected > .tree-row .attr-remove { visibility: visible; }
+.part-tree li.selected > .tree-row { background: #eef4fb; }
+.part-tree li.selected > .tree-row .node-actions { visibility: visible; }
+.part-tree .node-actions .link { font-size: 0.8rem; }
+.part-tree .node-form { margin-inline-start: 1.4rem; gap: 0.3rem; font-size: 0.8rem; }
+.part-tree .node-form input { font: inherit; font-size: 0.8rem; inline-size: 9rem; }
+.part-tree .tree-row.drop-before { box-shadow: inset 0 2px 0 #0563c1; }
+.part-tree .tree-row.drop-after { box-shadow: inset 0 -2px 0 #0563c1; }
+.part-tree .tree-row.drop-into { background: #dbe8f7; }
+.part-tree .node-form select { font: inherit; font-size: 0.8rem; }
+/* An XPaths entry that selects nothing in the data part (OpenDopePanel.tsx): the thing a template author most needs to notice. */
+.od-table td.selects-nothing { color: #c25e00; font-weight: 700; }
+.od-table td.error { color: #b00020; }
+
+/* Macros (ED-003 section 7.4) and the ask box (section 7.5). */
+.macros-menu .menu-pane { min-inline-size: 22rem; }
+.macros-menu ul { list-style: none; margin: 0; padding: 0; }
+.macros-menu li { display: flex; gap: 0.5rem; align-items: center; padding-block: 0.2rem; }
+.macros-menu li .name { flex: 1 1 auto; }
+.badge.macro-document { background: #2e8b57; }
+.badge.macro-browser { background: #7aa7d6; }
+.macro-source { max-block-size: 14rem; overflow: auto; background: #f6f6f6; border: 1px solid #ddd; padding: 0.4rem; font-size: 0.8rem; white-space: pre-wrap; }
+.macro-home { border: 1px solid #ddd; margin-block: 0.5rem; }
+.macro-home label { display: block; margin-block: 0.2rem; }
+.ask-box { border-block-start: 1px solid #ddd; margin-block-start: 0.75rem; padding-block-start: 0.5rem; }
+.ask-box h3 { margin-block: 0 0.3rem; font-size: 0.95rem; }
+.ask-box textarea { inline-size: 100%; box-sizing: border-box; font: inherit; font-size: 0.9rem; }
+.ask-request pre, .ask-explanation, .ask-text { max-block-size: 16rem; overflow: auto; background: #f6f6f6; border: 1px solid #ddd; padding: 0.4rem; font-size: 0.8rem; white-space: pre-wrap; }
+.ask-request details { margin-block: 0.3rem; }
+.ask-paste { border-block-start: 1px dashed #ddd; margin-block-start: 0.5rem; padding-block-start: 0.4rem; }
+.ask-preview { border: 1px solid #c8c8c8; background: #fff; padding: 0.5rem 1rem; margin-block: 0.4rem; max-block-size: 20rem; overflow: auto; }
+
+/* A right-to-left chrome (ED-003 section 12.2, step G3). The layout is in logical properties
+   throughout, so `dir="rtl"` on the root flips it; what follows is what the flip gets wrong. */
+
+/* Code reads left-to-right wherever it sits: XML, XPath, the console, addresses, keys. */
+.app[dir="rtl"] :is(pre, code, .console-editor, .xml-code, .property-rows, .attr-value, .part-content, .api-script) {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.app[dir="rtl"] :is(pre, .xml-code, .property-rows) { text-align: left; }
+/* The fields that take code (an XPath, prefix mappings, XML, an address, a key); inputs only, since a section's test id may say "xpath" too. */
+.app[dir="rtl"] :is(input, textarea):is([type="url"], [type="password"], [data-testid*="xpath"], [data-testid*="prefixes"], [data-testid="new-data-xml"], [data-testid="new-data-namespace"], [data-testid="new-data-root"], [data-testid="cc-position"], [data-testid="cc-role-expression"], [data-testid="od-entry-id"], [data-testid="od-condition-id"]),
+.app[dir="rtl"] input[data-testid="link-address"] {
+  direction: ltr;
+}
+
+/* A collapsed twisty points along the reading direction; arrows that mean "back", "forward",
+   "less indent" and "more indent" mirror, as Word's do in a right-to-left interface. */
+.app[dir="rtl"] .twisty,
+.app[dir="rtl"] .tool:is([data-command="history.undo"], [data-command="history.redo"], [data-command="paragraph.decreaseIndent"], [data-command="paragraph.increaseIndent"]) {
+  transform: scaleX(-1);
+}
+
+/* Presence (ED-004 section 5): the people in the room, as initials in their colours. */
+.people {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+.people .person {
+  inline-size: 1.75em;
+  block-size: 1.75em;
+  padding: 0;
+  border: 2px solid var(--bar-bg, #fff);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.75em;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* An agent (ED-005 section 8.2): a square, a badge, and the Stop any person in the room may press. */
+.people .person.agent { border-radius: 4px; animation: agent-arrives 1.6s ease-out 1; }
+/* An agent's chip mounts when it joins or is invited back: a ring that fades, so the arrival is seen. */
+@keyframes agent-arrives { from { box-shadow: 0 0 0 6px rgb(109 40 217 / 0.55); } to { box-shadow: 0 0 0 0 rgb(109 40 217 / 0); } }
+@media (prefers-reduced-motion: reduce) { .people .person.agent { animation: none; } }
+.people .agent-badge { font-size: 0.7em; padding-inline: 0.3em; border-radius: 3px; background: #ede9fe; color: #4c1d95; }
+.people .agent-stop { font-size: 0.8em; color: #b00020; }
+
+/* What the agent did (section 8.6), in the review panel: newest first, a click goes to where it acted. */
+.agent-log ol { list-style: none; margin: 0; padding: 0; }
+.agent-log .agent-log-main { display: flex; flex-wrap: wrap; gap: 0.35em; inline-size: 100%; text-align: start; background: none; border: 0; border-block-end: 1px solid #eee; padding-block: 0.25em; font: inherit; cursor: pointer; }
+.agent-log .agent-log-main:disabled { cursor: default; }
+.agent-log [data-ok="false"] .summary { color: #b00020; }
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The find bar (ED-005 section 3.4): a strip docked above the editing surface; it follows the chrome's direction, the fields their text's. */
+.find-bar { display: flex; flex-direction: column; gap: 0.25rem; padding-block: 0.3rem; padding-inline: 0.75rem; background: #fafafa; border-block-end: 1px solid #d0d0d0; }
+.find-bar .find-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.find-bar .find-query { inline-size: 18rem; max-inline-size: 60vw; padding: 0.2rem 0.35rem; font: inherit; }
+.find-bar .find-query[aria-invalid="true"] { border-color: #b00020; outline-color: #b00020; }
+.find-bar .find-count { min-inline-size: 6rem; color: #444; font-size: 0.85rem; }
+.find-bar .find-toggle-replace { inline-size: 1.6rem; flex: 0 0 auto; }
+.find-bar button.find-toggle-replace { border: none; background: transparent; cursor: pointer; }
+.find-bar label { white-space: nowrap; font-size: 0.85rem; }
+.find-bar .find-close { margin-inline-start: auto; border: none; background: transparent; font-size: 1.1rem; cursor: pointer; }
+.find-bar .error { margin: 0; color: #b00020; font-size: 0.85rem; padding-inline-start: 2rem; }
+
+/* The review panel (ED-005 section 6.5): an entry per change, its author's chip, the current one marked; the revisions shown in Word only muted. */
+.review-panel .review-head { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-block-end: 0.5rem; }
+.review-panel .review-view { display: flex; flex-wrap: wrap; gap: 0.6rem; border: 0; padding: 0; margin: 0 0 0.4rem; font-size: 0.85em; }
+.review-panel .review-view legend { padding: 0; margin-inline-end: 0.4rem; float: inline-start; }
+.review-panel .review-by-author { display: block; font-size: 0.85em; margin-block-end: 0.5rem; }
+.review-panel .review-list { list-style: none; margin: 0; padding: 0; }
+.review-panel .review-entry { display: flex; align-items: flex-start; gap: 0.3rem; padding: 0.3rem 0.2rem; border-block-end: 1px solid #eee; }
+.review-panel .review-entry.current { background: #eef4fb; box-shadow: inset 3px 0 0 #3b82c4; }
+.review-panel .review-entry.preserved { color: #666; }
+.review-panel .review-entry-main { flex: 1; min-inline-size: 0; display: flex; flex-wrap: wrap; gap: 0.2rem 0.5rem; text-align: start; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.review-panel .review-entry-main .type { font-weight: 600; }
+.review-panel .review-entry-main .snippet { flex-basis: 100%; overflow-wrap: anywhere; }
+.review-panel .review-entry-main .what { flex-basis: 100%; font-size: 0.85em; color: #555; }
+.review-panel .review-entry-actions { display: flex; flex-direction: column; gap: 0.2rem; }
+.review-panel .chip { display: inline-block; inline-size: 0.9em; block-size: 0.9em; border-radius: 2px; margin-inline-end: 0.3em; vertical-align: -0.1em; }
+.review-panel .badge.in-word { background: #e9e2cf; color: #5a4a1a; border-radius: 3px; padding: 0 0.3em; font-size: 0.8em; }
+.review-panel .review-author h3 { font-size: 0.85rem; margin-block: 0.6rem 0.2rem; }
+.review-panel .review-author-actions { display: flex; gap: 0.3rem; margin-block-end: 0.3rem; }
+
+/* The Control tab's XHTML switch (ED-005 section 12.75): a row under the binding's facts. */
+.control-group .xhtml-switch { display: block; margin-block: 0.3rem; }

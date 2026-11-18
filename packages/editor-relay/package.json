@@ -1,0 +1,59 @@
+{
+  "name": "@docx4j/editor-relay",
+  "version": "0.1.0",
+  "description": "The co-editing relay for @docx4j/editor: a Hocuspocus server holding each room's Yjs document, with room tokens, plain-file persistence, limits and an idle rule, and (./client) a peer's connection to a room. Run it as docx4j-editor-relay, or embed it with createRelay.",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/plutext/docx4j-editor.git",
+    "directory": "packages/editor-relay"
+  },
+  "homepage": "https://github.com/plutext/docx4j-editor/tree/main/packages/editor-relay#readme",
+  "bugs": {
+    "url": "https://github.com/plutext/docx4j-editor/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "bin": {
+    "docx4j-editor-relay": "./dist/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./client": {
+      "types": "./dist/client.d.mts",
+      "import": "./dist/client.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.txt"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepack": "node ../../scripts/check-licences.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/ws": "^8.18.1",
+    "ws": "^8.21.3"
+  },
+  "dependencies": {
+    "@hocuspocus/extension-database": "^3.4.4",
+    "@hocuspocus/provider": "^3.4.4",
+    "@hocuspocus/server": "^3.4.4",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.33"
+  }
+}

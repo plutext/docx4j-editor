@@ -1,0 +1,92 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Printing (ED-006 section 3.2): the view's half. The page box gives way to the `@page` rules (its width
+   and padding are the section's, from `css.ts`, on screen); what the view draws to help editing is not
+   printed; colours print as they show, since a browser otherwise drops backgrounds, and with them
+   shading, highlights and the markup's colours. The application's half is `app/print.css`. */
+@media print {
+  .docx-editor.body {
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+    inline-size: auto;
+    min-block-size: 0;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .docx-editor.body .ProseMirror { min-block-size: 0; }
+
+  /* Page boundaries and their headers and footers: the browser breaks pages where its layout says, so
+     Word's last breaks would be wrong (ED-006 section 2.4). Section breaks and comment and move range
+     markers: drawn for editing only. A selector still matches a widget that makes no box (section 9.1). */
+  .docx-editor .page-start,
+  .docx-editor .page-boundary,
+  .docx-editor .page-end,
+  .docx-editor .section-break,
+  .docx-editor .opaque-block.marker,
+  .docx-editor .column-resize-handle,
+  .ProseMirror .peer-caret { display: none !important; }
+  /* Formatting marks are for editing (ED-005 section 12.80). */
+  .show-marks .docx-editor p::after, .show-marks .docx-editor p > :nth-last-child(1 of :not(.invisible, br.ProseMirror-trailingBreak, img.ProseMirror-separator))::after, .show-marks .docx-editor .tab::before { content: none !important; }
+  .docx-editor p > br.ProseMirror-trailingBreak { display: inline !important; }
+
+  /* A page or column break's label (the break itself is section 3.4's). */
+  .docx-editor .page-break {
+    display: block;
+    block-size: 0;
+    overflow: hidden;
+    font-size: 0;
+    border: 0;
+    margin: 0;
+  }
+
+  /* Highlights that belong to the session, not the document. */
+  .docx-editor .find-hit,
+  .docx-editor .find-hit.current,
+  .docx-editor .current-change,
+  .ProseMirror .peer-selection { background: none !important; outline: none !important; }
+  .docx-editor .ProseMirror-selectednode { outline: none; }
+  .docx-editor .selectedCell::after { display: none; }
+
+  /* Content controls print their content without boundaries or tags, as Word prints them (section 3.5). */
+  .docx-editor .sdt-block,
+  .docx-editor .sdt-inline,
+  .docx-editor tr[data-sdt],
+  .docx-editor tr[data-sdt] > td,
+  .docx-editor td[data-sdt] { outline: none !important; box-shadow: none !important; }
+  .docx-editor .sdt-block::before,
+  .docx-editor .sdt-block::after,
+  .docx-editor .sdt-inline::before,
+  .docx-editor .sdt-inline::after,
+  .docx-editor tr[data-sdt] > td::before,
+  .docx-editor tr[data-sdt] > td::after,
+  .docx-editor td[data-sdt]::before,
+  .docx-editor td[data-sdt]::after { content: none !important; display: none !important; }
+
+  /* Breaks and keeps (section 3.4). A paragraph's own, from its source, outrank its style's (`css.ts`). */
+  .docx-editor p[data-page-break-before="1"] { break-before: page; }
+  .docx-editor p[data-page-break-before="0"] { break-before: auto; }
+  .docx-editor p[data-keep-next="1"] { break-after: avoid; }
+  .docx-editor p[data-keep-next="0"] { break-after: auto; }
+  .docx-editor p[data-keep-lines="1"] { break-inside: avoid; }
+  .docx-editor p[data-keep-lines="0"] { break-inside: auto; }
+  .docx-editor p[data-widow-control="1"] { orphans: 2; widows: 2; }
+  .docx-editor p[data-widow-control="0"] { orphans: 1; widows: 1; }
+  /* A page break inside a paragraph, sizeless (section 9.1, case B); a column break the same, there being no columns. */
+  .docx-editor .page-break { break-before: page; }
+  .docx-editor tr[data-cant-split="1"] { break-inside: avoid; }
+
+  /* Header rows: the copy repeats on each page, the first included, and the originals it copies go (section 3.4). */
+  .docx-editor table > thead.print-header { display: table-header-group; }
+  .docx-editor table:has(> thead.print-header[data-rows="1"]) > tbody > tr:nth-child(-n+1),
+  .docx-editor table:has(> thead.print-header[data-rows="2"]) > tbody > tr:nth-child(-n+2),
+  .docx-editor table:has(> thead.print-header[data-rows="3"]) > tbody > tr:nth-child(-n+3),
+  .docx-editor table:has(> thead.print-header[data-rows="4"]) > tbody > tr:nth-child(-n+4),
+  .docx-editor table:has(> thead.print-header[data-rows="5"]) > tbody > tr:nth-child(-n+5),
+  .docx-editor table:has(> thead.print-header[data-rows="6"]) > tbody > tr:nth-child(-n+6),
+  .docx-editor table:has(> thead.print-header[data-rows="7"]) > tbody > tr:nth-child(-n+7),
+  .docx-editor table:has(> thead.print-header[data-rows="8"]) > tbody > tr:nth-child(-n+8),
+  .docx-editor table:has(> thead.print-header[data-rows="9"]) > tbody > tr:nth-child(-n+9) { display: none; }
+}
+@media screen {
+  .docx-editor table > thead.print-header { display: none; }
+}

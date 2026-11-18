@@ -1,0 +1,771 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* The editing surface's own rules; what the document looks like comes from css.ts. Logical properties throughout (ED-001 section 3.7). */
+
+.docx-editor {
+  background: #fff;
+  color: #000;
+  box-shadow: 0 0 0 1px #d0d0d0, 0 2px 8px rgba(0, 0, 0, 0.12);
+  margin-inline: auto;
+  margin-block: 1rem;
+  box-sizing: border-box;
+  padding-block: 72pt;
+  padding-inline: 72pt;
+  inline-size: 595pt;
+  /* The page keeps its section's width, as Word's does: lines break where Word breaks them, and a
+     narrower window or a side panel scrolls the page area rather than laying the page out again
+     (ED-005 section 12.39; a switch of perspective re-wrapped every line of a long document). */
+  flex-shrink: 0;
+  font-family: Calibri, Carlito, sans-serif;
+  font-size: 11pt;
+  line-height: 1.15;
+  /* The margins are Word's selection bar (selectionbar.ts): an arrow there, the text cursor inside the editor's element. */
+  cursor: default;
+}
+
+.docx-editor .ProseMirror {
+  outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  min-block-size: 20em;
+}
+
+.docx-editor p {
+  margin-block: 0 8pt;
+}
+
+.docx-editor .tab {
+  display: inline-block;
+  inline-size: 36pt;   /* until measured: the default interval from the column's edge (ED-003 section 5.6) */
+}
+
+/* A stop's leader, along the tab's baseline. */
+.docx-editor .tab[data-leader="dot"], .docx-editor .tab[data-leader="middleDot"] {
+  background-image: radial-gradient(circle, currentColor 0.6px, transparent 0.8px);
+  background-size: 3px 3px;
+  background-repeat: repeat-x;
+  background-position: 0 calc(100% - 0.2em);
+}
+.docx-editor .tab[data-leader="hyphen"] { background-image: linear-gradient(currentColor, currentColor); background-size: 4px 1px; background-repeat: repeat-x; background-position: 0 calc(100% - 0.3em); }
+.docx-editor .tab[data-leader="underscore"], .docx-editor .tab[data-leader="heavy"] { border-block-end: 1px solid currentColor; }
+
+/* Content controls as Word draws them (ED-005 section 12.60), outside the Template perspective
+   (`.word-controls` on the page column): by each control's own appearance (`w15:appearance`,
+   `data-appearance`) and colour (`w15:color`, `--sdt-own`). A bounding box, Word's default: an
+   outline on hover and around the control at the caret, its title on a tab above it. Start and end
+   tags: the title in a tag at each end, always. Hidden: nothing. */
+.docx-editor .sdt-block { position: relative; }
+.word-controls .docx-editor .sdt-block, .word-controls .docx-editor .sdt-inline,
+.word-controls .docx-editor tr[data-sdt], .word-controls .docx-editor td[data-sdt] { --sdt-edge: var(--sdt-own, #8c9db5); }
+.word-controls .docx-editor [data-appearance="BoundingBox"]:hover,
+.word-controls .docx-editor [data-appearance="BoundingBox"].sdt-current { outline: 1px solid var(--sdt-edge); outline-offset: 1px; }
+.word-controls .docx-editor .sdt-inline[data-appearance="BoundingBox"] { position: relative; }
+.word-controls .docx-editor [data-appearance="BoundingBox"].sdt-current[data-name]::before {
+  content: attr(data-name);
+  position: absolute;
+  inset-block-end: calc(100% + 2px);
+  inset-inline-start: -2px;
+  font: 7pt system-ui, sans-serif;
+  line-height: 1.3;
+  color: #fff;
+  background: var(--sdt-edge);
+  padding-inline: 3pt;
+  border-start-start-radius: 2px;
+  border-start-end-radius: 2px;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+.word-controls .docx-editor [data-appearance="Tags"]::before,
+.word-controls .docx-editor [data-appearance="Tags"]::after,
+.word-controls .docx-editor td[data-sdt-appearance="Tags"]::before,
+.word-controls .docx-editor tr[data-sdt-appearance="Tags"].sdt-first > td:first-child::before,
+.show-control-tags .docx-editor [data-appearance="Tags"]::before,
+.show-control-tags .docx-editor [data-appearance="Tags"]:not([data-verdict])::after,
+.show-control-tags .docx-editor td[data-sdt-appearance="Tags"]::before,
+.show-control-tags .docx-editor tr[data-sdt-appearance="Tags"].sdt-first > td:first-child::before {
+  content: attr(data-name);
+  display: inline-block;
+  min-inline-size: 4pt;
+  font: 7pt system-ui, sans-serif;
+  line-height: 1.3;
+  color: var(--sdt-edge);
+  border: 1px solid var(--sdt-edge);
+  padding-inline: 2pt;
+  vertical-align: text-top;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+:is(.word-controls, .show-control-tags) .docx-editor [data-appearance="Tags"]::before,
+:is(.word-controls, .show-control-tags) .docx-editor td[data-sdt-appearance="Tags"]::before,
+:is(.word-controls, .show-control-tags) .docx-editor tr[data-sdt-appearance="Tags"].sdt-first > td:first-child::before { border-start-start-radius: 4pt; border-end-start-radius: 4pt; margin-inline-end: 1pt; }
+:is(.word-controls, .show-control-tags) .docx-editor [data-appearance="Tags"]::after { border-start-end-radius: 4pt; border-end-end-radius: 4pt; margin-inline-start: 1pt; }
+:is(.word-controls, .show-control-tags) .docx-editor .sdt-block[data-appearance="Tags"]::before,
+.word-controls .docx-editor .sdt-block[data-appearance="Tags"]::after,
+.show-control-tags .docx-editor .sdt-block[data-appearance="Tags"]:not([data-verdict])::after,
+:is(.word-controls, .show-control-tags) .docx-editor td[data-sdt-appearance="Tags"]::before,
+:is(.word-controls, .show-control-tags) .docx-editor tr[data-sdt-appearance="Tags"].sdt-first > td:first-child::before { display: block; inline-size: fit-content; }
+.word-controls .docx-editor td[data-sdt-appearance="Tags"]::before { content: attr(data-sdt-name); }
+.word-controls .docx-editor tr[data-sdt-appearance="Tags"].sdt-first > td:first-child::before { content: var(--sdt-row-name, ""); }
+/* In the Template perspective the tags carry the label (the title, else the tag, else the kind), in the control's own
+   colour, else its role's; a verdict badge takes the end tag's place. */
+.show-control-tags .docx-editor .sdt-block, .show-control-tags .docx-editor .sdt-inline,
+.show-control-tags .docx-editor tr[data-sdt], .show-control-tags .docx-editor td[data-sdt] { --sdt-edge: var(--sdt-own, var(--sdt-color)); }
+.show-control-tags .docx-editor [data-appearance="Tags"]::before,
+.show-control-tags .docx-editor [data-appearance="Tags"]:not([data-verdict])::after { content: attr(data-label); }
+.show-control-tags .docx-editor td[data-sdt-appearance="Tags"]::before { content: attr(data-sdt-label); }
+.show-control-tags .docx-editor tr[data-sdt-appearance="Tags"].sdt-first > td:first-child::before { content: var(--sdt-row-label); }
+.word-controls .docx-editor tr[data-sdt-appearance="BoundingBox"].sdt-current > td,
+.word-controls .docx-editor td[data-sdt-appearance="BoundingBox"].sdt-current { box-shadow: inset 0 0 0 1px var(--sdt-edge); }
+
+/* The Template perspective's authoring view (`.show-control-tags`) for a control whose appearance is a bounding box,
+   Word's default: every such control drawn, whether the caret is in it or not. Tags and hidden are drawn as they say
+   (below), at Jason's word (ED-005 section 12.61): the setting does something where it is set. */
+.show-control-tags .docx-editor .sdt-block[data-appearance="BoundingBox"],
+.show-control-tags .docx-editor .sdt-inline[data-appearance="BoundingBox"] {
+  outline: 1px dotted transparent;
+}
+
+.show-control-tags .docx-editor .sdt-block[data-appearance="BoundingBox"]:hover,
+.show-control-tags .docx-editor .sdt-inline[data-appearance="BoundingBox"]:hover {
+  outline-color: #9db8d6;
+}
+
+/* Content controls drawn with their role's colour (ED-003 section 4.9) in the Template perspective
+   (`.show-control-tags`): a gutter on a block control and on the rows of a row group, an underline on
+   a run control, the tag or title in the page's margin, the control at the caret stronger. Colours:
+   bound blue, condition green, repeat purple, none grey. */
+.docx-editor .sdt-block, .docx-editor .sdt-inline, .docx-editor tr[data-sdt], .docx-editor td[data-sdt] { --sdt-color: #7aa7d6; }
+.docx-editor [data-role="bound"], .docx-editor tr[data-sdt-role="bound"], .docx-editor td[data-sdt-role="bound"] { --sdt-color: #1f6fb2; }
+.docx-editor [data-role="condition"], .docx-editor tr[data-sdt-role="condition"], .docx-editor td[data-sdt-role="condition"] { --sdt-color: #2e8b57; }
+.docx-editor [data-role="repeat"], .docx-editor tr[data-sdt-role="repeat"], .docx-editor td[data-sdt-role="repeat"] { --sdt-color: #8a4fbf; }
+.docx-editor [data-role="component"], .docx-editor [data-role="positionCondition"] { --sdt-color: #b8860b; }
+
+.show-control-tags .docx-editor .sdt-block[data-appearance="BoundingBox"] {
+  box-shadow: inset 2px 0 0 var(--sdt-color);
+  padding-inline-start: 4pt;
+  margin-inline-start: -4pt;
+}
+
+.show-control-tags .docx-editor .sdt-inline[data-appearance="BoundingBox"] {
+  box-shadow: 0 1px 0 var(--sdt-color);
+}
+
+.show-control-tags .docx-editor .sdt-block[data-appearance="BoundingBox"].sdt-current { box-shadow: inset 3px 0 0 var(--sdt-color), inset 0 0 0 1px color-mix(in srgb, var(--sdt-color) 35%, transparent); }
+.show-control-tags .docx-editor .sdt-inline[data-appearance="BoundingBox"].sdt-current { box-shadow: 0 2px 0 var(--sdt-color); background: color-mix(in srgb, var(--sdt-color) 10%, transparent); }
+.show-control-tags .docx-editor tr[data-sdt-appearance="BoundingBox"].sdt-current > td:first-child { box-shadow: inset 5px 0 0 var(--sdt-color); }
+.show-control-tags .docx-editor td[data-sdt-appearance="BoundingBox"].sdt-current { box-shadow: inset 0 0 0 1px var(--sdt-color); }
+
+/* Tags shown: a block control's label in the page margin; a badge before the content for a run
+   control, a block control inside a table (the table wrapper would clip the margin), a cell
+   control, and a row group (on its first row's first cell: a pseudo-element on the row itself
+   lays out as a cell; the row view hands the label down as a custom property). */
+.show-control-tags .docx-editor .sdt-block[data-appearance="BoundingBox"]::before {
+  content: attr(data-label);
+  position: absolute;
+  inset-inline-start: -72pt;
+  inset-block-start: 0;
+  inline-size: 62pt;
+  text-align: end;
+  font: 7pt system-ui, sans-serif;
+  line-height: 1.2;
+  color: var(--sdt-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  pointer-events: none;
+}
+
+.show-control-tags .docx-editor .sdt-inline[data-appearance="BoundingBox"]::before,
+.show-control-tags .docx-editor td .sdt-block[data-appearance="BoundingBox"]::before,
+.show-control-tags .docx-editor td[data-sdt-label][data-sdt-appearance="BoundingBox"]::before,
+.show-control-tags .docx-editor tr[data-sdt][data-sdt-appearance="BoundingBox"].sdt-first > td:first-child::before {
+  content: attr(data-label);
+  position: static;
+  display: inline-block;
+  inline-size: auto;
+  text-align: start;
+  font: 6.5pt system-ui, sans-serif;
+  line-height: 1.2;
+  color: #fff;
+  background: var(--sdt-color);
+  border-radius: 2px;
+  padding-inline: 2pt;
+  margin-inline-end: 2pt;
+  vertical-align: text-top;
+  max-inline-size: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+.show-control-tags .docx-editor td .sdt-block[data-appearance="BoundingBox"]::before,
+.show-control-tags .docx-editor td[data-sdt-label][data-sdt-appearance="BoundingBox"]::before,
+.show-control-tags .docx-editor tr[data-sdt][data-sdt-appearance="BoundingBox"].sdt-first > td:first-child::before { display: block; inline-size: fit-content; margin-block-end: 1pt; }
+.show-control-tags .docx-editor td[data-sdt-label][data-sdt-appearance="BoundingBox"]::before { content: attr(data-sdt-label); }
+.show-control-tags .docx-editor tr[data-sdt][data-sdt-appearance="BoundingBox"].sdt-first > td:first-child::before { content: var(--sdt-row-label); }
+.show-control-tags .docx-editor tr[data-sdt][data-sdt-appearance="BoundingBox"].sdt-first > td[data-sdt-label][data-sdt-appearance="BoundingBox"]:first-child::before { content: var(--sdt-row-label) " › " attr(data-sdt-label); }
+
+.docx-editor .opaque-block {
+  border: 1px dashed #b8b8b8;
+  padding-block: 4pt;
+  padding-inline: 6pt;
+  color: #555;
+  user-select: none;
+}
+
+.docx-editor .comment {
+  background: rgba(255, 220, 120, 0.35);
+}
+
+.docx-editor a.link {
+  color: #0563c1;
+  text-decoration: underline;
+}
+
+/* Decorations and read-only regions (ED-002 section 5.3). */
+
+.docx-editor .list-label {
+  display: inline-block;
+  min-inline-size: 18pt;
+  margin-inline-end: 6pt;
+  user-select: none;
+  /* text-indent is inherited and an inline-block indents its own first line by it: the label's glyphs were drawn one
+     hanging indent left of its box, in the margin for a level at the text's edge (ED-005 section 12.97). */
+  text-indent: 0;
+}
+
+.docx-editor .section-break {
+  border-block-end: 1px dotted #6b6b6b;
+  color: #6b6b6b;
+  font-size: 8pt;
+  font-family: system-ui, sans-serif;
+  text-align: center;
+  margin-block: 4pt;
+  user-select: none;
+}
+
+.docx-editor .page-boundary {
+  display: block;
+  margin-block: 12pt;
+  margin-inline: -72pt;
+  padding-block: 6pt;
+  border-block: 1px solid #c8c8c8;
+  background: #f1f1f1;
+  color: #666;
+  font-size: 8pt;
+  font-family: system-ui, sans-serif;
+  text-align: end;
+  padding-inline: 8pt;
+  user-select: none;
+}
+
+.docx-editor .page-boundary.stale {
+  border-block-style: dashed;
+  color: #999;
+  font-style: italic;
+}
+
+.docx-editor .page-break {
+  display: block;
+  border-block-end: 1px dashed #6b6b6b;
+  color: #6b6b6b;
+  font-size: 8pt;
+  font-family: system-ui, sans-serif;
+  text-align: center;
+  margin-block: 4pt;
+  user-select: none;
+}
+
+.docx-editor .opaque-inline {
+  display: inline-block;
+  color: #888;
+  user-select: none;
+}
+
+.docx-editor .opaque-inline.invisible {
+  inline-size: 0;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+
+.docx-editor .opaque-block .opaque-label {
+  display: block;
+  font-size: 8pt;
+  font-family: system-ui, sans-serif;
+  color: #888;
+}
+
+.docx-editor table.opaque-table {
+  border-collapse: collapse;
+  inline-size: 100%;
+}
+
+.docx-editor table.opaque-table td {
+  border: 1px solid #c0c0c0;
+  padding-block: 2pt;
+  padding-inline: 4pt;
+  vertical-align: top;
+}
+
+.docx-editor .footnote-ref::after {
+  content: attr(data-n);
+}
+
+.docx-editor img.image {
+  vertical-align: baseline;
+  max-inline-size: 100%;
+}
+
+.docx-editor img.image.missing {
+  inline-size: 2em;
+  block-size: 2em;
+  background: #eee;
+}
+
+.docx-editor .ProseMirror-selectednode {
+  outline: 2px solid #0563c1;
+}
+
+/* A story (ED-002 section 7.1) takes the document's look but none of the page's geometry. */
+
+.docx-editor.story-view {
+  inline-size: auto;
+  max-inline-size: none;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.docx-editor.story-view .ProseMirror {
+  min-block-size: 0;
+}
+
+/* A note's own reference mark: the panel prints the number beside the story instead. */
+.docx-editor.story-view .opaque-inline.kind-footnoteRef,
+.docx-editor.story-view .opaque-inline.kind-endnoteRef,
+.docx-editor.story-view .opaque-inline.kind-annotationRef {
+  display: none;
+}
+
+/* Headers and footers at the page boundaries (ED-002 section 7.4). */
+
+.docx-editor .page-start,
+.docx-editor .page-end {
+  display: block;
+  user-select: none;
+}
+
+.docx-editor .page-boundary {
+  text-align: start;
+  padding-inline: 0;
+  padding-block: 0;
+}
+
+.docx-editor .boundary-label {
+  text-align: end;
+  padding-inline: 8pt;
+  padding-block: 6pt;
+}
+
+.docx-editor .boundary-footer,
+.docx-editor .boundary-header {
+  padding-inline: 72pt;
+  color: #444;
+}
+
+.docx-editor .page-boundary .boundary-footer:not(:empty) {
+  background: #fff;
+  padding-block-end: 36pt;
+}
+
+.docx-editor .page-boundary .boundary-header:not(:empty) {
+  background: #fff;
+  padding-block-start: 36pt;
+}
+
+.docx-editor .page-start .boundary-header:not(:empty) {
+  margin-block-end: 12pt;
+}
+
+.docx-editor .page-end .boundary-footer:not(:empty) {
+  margin-block-start: 12pt;
+}
+
+/* A boundary inside a table (ED-003 section 11.14): a row of its own between the rows, the band the table's width.
+   The block form's display and the stylesheet's negative page margin do not apply to it. */
+.docx-editor tr.page-boundary {
+  display: table-row;
+  margin: 0;
+  padding: 0;
+}
+
+.docx-editor tr.page-boundary > td {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: start;
+}
+
+.docx-editor tr.page-boundary .boundary-footer,
+.docx-editor tr.page-boundary .boundary-header {
+  padding-inline: 0;
+}
+
+.docx-editor tr.page-boundary .boundary-label {
+  background: #f4f4f4;
+}
+
+.docx-editor .page-boundary.stale .boundary-story,
+.docx-editor .page-end.stale .boundary-story {
+  opacity: 0.55;
+}
+
+.docx-editor .field-hidden {
+  display: none;
+}
+
+.docx-editor .opaque-inline.field {
+  color: inherit;
+  background: #f0f0f0;
+}
+
+.docx-editor .story-view .field {
+  background: #f0f0f0;
+}
+
+/* Tables (ED-003 section 3.8). The rules prosemirror-tables ships (MIT) for its wrapper, resize
+   handle and cell selection, then the document's borders and margins from the variables the
+   table view sets (tables.ts). */
+
+/* A table wider than the text column runs into the margin, as Word draws it, rather than scrolling inside the page
+   (ED-005 section 12.78); the page area scrolls when it passes the page's edge. */
+.docx-editor .tableWrapper {
+  overflow-x: visible;
+  margin-block: 0 8pt;
+}
+/* An automatic table (no fixed layout, no percentage: Word's default, check 42): the browser's automatic layout, the
+   stated widths the columns' minimums; AutoFit to contents (automatic cells): the widths put aside, the content alone. */
+.docx-editor table.docx-table.autofit { table-layout: auto; }
+.docx-editor table.docx-table.autofit-contents col { width: auto !important; }
+
+.docx-editor table.docx-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  overflow: hidden;
+  margin-inline-start: var(--tbl-margin-start, var(--tbl-margin, 0));
+  margin-inline-end: var(--tbl-margin, 0);
+}
+
+.docx-editor td {
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+  padding-block: var(--tbl-pad-top, 0) var(--tbl-pad-bottom, 0);
+  padding-inline: var(--tbl-pad-left, 5.4pt) var(--tbl-pad-right, 5.4pt);
+  border-block-start: var(--tbl-h, none);
+  border-inline-start: var(--tbl-v, none);
+  border-block-end: var(--tbl-h, none);
+  /* A word wider than its cell breaks at the cell's edge, as Word breaks it (ED-005 section 12.92): under the
+     browser's automatic layout an unbreakable identifier had widened its column and squeezed the others. */
+  overflow-wrap: anywhere;
+  border-inline-end: var(--tbl-v, none);
+  background: var(--tbl-shading, transparent);
+}
+
+.docx-editor tr:first-child > td { border-block-start: var(--tbl-top, none); }
+.docx-editor tr:last-child > td { border-block-end: var(--tbl-bottom, none); }
+.docx-editor td:first-child { border-inline-start: var(--tbl-left, none); }
+.docx-editor td:last-child { border-inline-end: var(--tbl-right, none); }
+
+.docx-editor td:not([data-colwidth]):not(.column-resize-dragging) {
+  min-width: 25px;
+}
+
+.docx-editor td > p:last-child {
+  margin-block-end: 0;
+}
+
+.docx-editor .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 20;
+  background-color: #adf;
+  pointer-events: none;
+}
+
+.docx-editor .ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* The pointer on a table's top border is Word's down arrow, and a click there selects the column (plugins/columnselect.ts). */
+.docx-editor table.column-arrow {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='16'><path d='M6 15.5 L0.5 8 H3.5 V0.5 H8.5 V8 H11.5 Z' fill='black' stroke='white'/></svg>") 6 15, pointer;
+}
+
+.docx-editor .selectedCell::after {
+  z-index: 2;
+  position: absolute;
+  content: '';
+  inset: 0;
+  background: rgba(200, 200, 255, 0.4);
+  pointer-events: none;
+}
+
+/* Rows inside a row-level content control, in the Template perspective: a coloured gutter on the row's first cell, the tag on hover (ED-001 section 4.1). */
+.show-control-tags .docx-editor tr[data-sdt][data-sdt-appearance="BoundingBox"] > td:first-child {
+  box-shadow: inset 3px 0 0 var(--sdt-color);
+}
+
+.show-control-tags .docx-editor tr[data-sdt-depth="2"][data-sdt-appearance="BoundingBox"] > td:first-child {
+  box-shadow: inset 3px 0 0 var(--sdt-color), inset 6px 0 0 #fff, inset 9px 0 0 #b58ad6;
+}
+
+.show-control-tags .docx-editor tr[data-sdt][data-sdt-appearance="BoundingBox"].sdt-first > td {
+  border-block-start-color: var(--sdt-color);
+}
+
+.show-control-tags .docx-editor tr[data-sdt][data-sdt-appearance="BoundingBox"].sdt-last > td {
+  border-block-end-color: var(--sdt-color);
+}
+
+.show-control-tags .docx-editor td[data-sdt][data-sdt-appearance="BoundingBox"] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sdt-color) 50%, transparent);
+}
+
+/* Verdict badges (ED-003 section 4.7; plugins/verdicts.ts): what a processor would do with a
+   control, after its label; a dropped control dimmed. Shown with the tags. */
+.show-control-tags .docx-editor .sdt-block[data-verdict]::after {
+  content: attr(data-verdict);
+  position: absolute;
+  inset-inline-start: -72pt;
+  inset-block-start: 9pt;
+  inline-size: 62pt;
+  text-align: end;
+  font: 6.5pt system-ui, sans-serif;
+  line-height: 1.2;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  pointer-events: none;
+}
+
+.show-control-tags .docx-editor td .sdt-block[data-verdict]::after,
+.show-control-tags .docx-editor .sdt-inline[data-verdict]::after,
+.show-control-tags .docx-editor td[data-sdt-verdict]::after {
+  content: attr(data-verdict);
+  position: static;
+  display: inline-block;
+  inline-size: auto;
+  text-align: start;
+  font: 6.5pt system-ui, sans-serif;
+  line-height: 1.2;
+  color: #333;
+  background: #e6e6e6;
+  border-radius: 2px;
+  padding-inline: 2pt;
+  margin-inline-start: 2pt;
+  vertical-align: text-top;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+.show-control-tags .docx-editor td[data-sdt-verdict]::after { content: attr(data-sdt-verdict); display: block; inline-size: fit-content; margin-inline-start: 0; margin-block-start: 1pt; }
+.show-control-tags .docx-editor [data-verdict-kept="false"] { opacity: 0.45; }
+.show-control-tags .docx-editor [data-verdict-error]::after, .show-control-tags .docx-editor td[data-verdict-error]::after { color: #b00020; }
+
+/* Find (ED-005 section 3.6): every hit tinted, the current one stronger; decorations of the find plugin. */
+.docx-editor .find-hit { background: rgba(255, 213, 0, 0.45); border-radius: 1px; }
+.docx-editor .find-hit.current { background: rgba(255, 140, 0, 0.75); outline: 1px solid rgba(180, 90, 0, 0.8); }
+
+/* Presence (ED-004 section 5): a peer's caret is a bar in its colour, its name above it on hover; a selection is a tint (view/presence.ts). */
+.ProseMirror .peer-caret {
+  position: relative;
+  margin-inline: -1px;
+  border-inline-start: 2px solid;
+  word-break: normal;
+  pointer-events: auto;
+}
+.ProseMirror .peer-caret-name {
+  position: absolute;
+  inset-block-end: 100%;
+  inset-inline-start: -2px;
+  padding: 0 4px;
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
+  font: 600 11px/1.5 system-ui, sans-serif;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.ProseMirror .peer-caret:hover .peer-caret-name,
+.ProseMirror .peer-caret.flash .peer-caret-name {
+  opacity: 1;
+}
+
+/* Tracked changes (ED-005 section 6.3): drawn from the classes the mark and node views set, the
+   author's colour from `--author-hue`, which one rule per author sets (view/authors.ts). Word's
+   defaults where it has an inline form: insertions underlined and deletions struck through in the
+   author's colour, moves green and doubled, a change bar in the margin; a formatting change dotted
+   (Word shows it in a balloon, which E4 leaves out). No decoration per block. */
+.docx-editor { --rev-move: #1b7f1b; --rev-bar: #4a4a4a; }
+.docx-editor [data-author] { --rev-color: hsl(var(--author-hue, 0) 65% 42%); --rev-tint: hsl(var(--author-hue, 0) 65% 42% / 0.1); }
+.docx-editor .rev-move, .docx-editor .rev-mark-move, .docx-editor .rev-row-move { --rev-color: var(--rev-move); }
+.docx-editor ins.insertion { color: var(--rev-color); text-decoration: underline; text-decoration-color: var(--rev-color); }
+.docx-editor del.deletion { color: var(--rev-color); text-decoration: line-through; text-decoration-color: var(--rev-color); }
+.docx-editor ins.insertion.move { color: var(--rev-move); text-decoration: underline double; text-decoration-color: var(--rev-move); }
+.docx-editor del.deletion.move { color: var(--rev-move); text-decoration: line-through double; text-decoration-color: var(--rev-move); }
+.docx-editor .format-change { text-decoration: underline dotted; text-decoration-color: var(--rev-color); text-underline-offset: 0.3em; }
+/* An author's pattern behind their changes, faint (section 9.5: authors differ by more than colour); the
+   swatches beside their name in the review panel, the comments margin and People carry it too. */
+.docx-editor ins.insertion, .docx-editor del.deletion, .docx-editor .format-change, .docx-editor .rev-ins:not(.tab):not(img), .docx-editor .rev-del:not(.tab):not(img) { background-image: var(--author-pattern, none); }
+/* A run's own theme colour where the value written beside it is stale (plugins/decorations.ts). The decoration's
+   element is inside a tracked change's, so a change keeps its author's colour until a view draws it plain. */
+.docx-editor .theme-colour { color: var(--theme-colour); }
+.docx-editor ins.insertion .theme-colour, .docx-editor del.deletion .theme-colour { color: inherit; }
+.markup-accepted ins.insertion .theme-colour, .markup-original del.deletion .theme-colour { color: var(--theme-colour); }
+/* A run's own property switched off (`<w:b w:val="0"/>`) over a style that switches it on (plugins/decorations.ts,
+   ED-005 section 12.132): the decoration's element is the innermost, so it beats the style's rule it inherits. */
+/* A run's own bold is bold, as Word draws `<w:b/>` whatever its styles say; the browser's own `strong` is `bolder`,
+   which inside a bold style asks for 900, and Arial's 900 is Arial Black where a system groups it under Arial. */
+.docx-editor strong { font-weight: bold; }
+.docx-editor .not-bold { font-weight: normal; }
+.docx-editor .not-italic { font-style: normal; }
+.docx-editor .not-caps { text-transform: none; }
+.docx-editor .not-small-caps { font-variant-caps: normal; }
+/* An atom inserted or deleted: a tab, a break, a note reference, an item shown read-only, an image. */
+.docx-editor .rev-ins { color: var(--rev-color); text-decoration: underline; text-decoration-color: var(--rev-color); }
+.docx-editor .rev-del { color: var(--rev-color); text-decoration: line-through; text-decoration-color: var(--rev-color); }
+.docx-editor .tab.rev-ins { border-block-end: 1px solid var(--rev-color); }
+.docx-editor .tab.rev-del { background-image: linear-gradient(var(--rev-color), var(--rev-color)); background-size: 100% 1px; background-position: 0 60%; background-repeat: no-repeat; }
+.docx-editor img.rev-ins { outline: 2px solid var(--rev-color); }
+.docx-editor img.rev-del { outline: 2px solid var(--rev-color); opacity: 0.45; }
+/* Formatting marks (`.show-marks` on the page column: the Developer and Template perspectives, an option elsewhere;
+   ED-005 section 12.80): a paragraph's pilcrow after its text in the mark's own size and colour (the paragraph's
+   where the mark states none, as Word draws it), a cell's last paragraph ending in Word's cell mark, a tab's arrow.
+   The pilcrow takes no width, so the lines break as they do without it, and no text indent, which a list
+   paragraph's hanging indent would otherwise pull it back by (section 12.80 item 6). A paragraph whose last
+   node is not text (a control, an atom, a tab) ends in ProseMirror's trailing break, after which the pilcrow would
+   start a new line: it goes on the node before the break instead, inside a control's box. In an empty paragraph
+   it goes before the break, so the paragraph stays one line: on the last child that is neither the break nor an
+   invisible atom (a bookmark's end, a page-break marker: `inline-size: 0; overflow: hidden`, which would clip the
+   pilcrow; Jason, 2026-10-29: a heading ending in nine bookmark ends had none) nor ProseMirror's separator image,
+   which it puts before the break after an inline node. A tracked mark's pilcrow below keeps its colour
+   and decoration. */
+.show-marks .docx-editor p::after,
+.show-marks .docx-editor p:has(> br.ProseMirror-trailingBreak:last-child) > :nth-last-child(1 of :not(.invisible, br.ProseMirror-trailingBreak, img.ProseMirror-separator))::after {
+  content: '¶'; display: inline-block; inline-size: 1ch; margin-inline-end: -1ch; overflow: visible; white-space: pre; text-indent: 0;
+  font-size: var(--mark-size, inherit); color: var(--mark-color, inherit);
+}
+/* An empty paragraph (its trailing break alone): the break is hidden and the pilcrow, in flow after it, makes the
+   paragraph's one line, so the caret at the paragraph's start is drawn at the pilcrow's left edge, as Word draws it,
+   and the pilcrow follows the indent and the alignment as the caret does. A `::before` would be the change bar's
+   (`.has-change::before`) and would put the caret after the pilcrow; an absolutely placed box sits at the box's edge,
+   not where text would go (section 12.80 item 7). The break is hidden only where a pilcrow stands in for it. */
+.show-marks .docx-editor p:has(> br.ProseMirror-trailingBreak:only-child) > br.ProseMirror-trailingBreak { display: none; }
+/* A paragraph whose mark the selection takes in (plugins/markselection.ts): its pilcrow highlighted with the text. The
+   box is a character wide with the same taken back, so it paints the highlight and still takes no room. Painted while
+   its editor has the focus alone (Jason, 2026-11-02): a click beside the page leaves the editor's selection as it was,
+   the whole document after Ctrl+A, while the browser stops painting the text's, and the marks must go with the text. */
+.show-marks .docx-editor .ProseMirror-focused p.mark-selected::after,
+.show-marks .docx-editor .ProseMirror-focused p.mark-selected:has(> br.ProseMirror-trailingBreak:last-child) > :nth-last-child(1 of :not(.invisible, br.ProseMirror-trailingBreak, img.ProseMirror-separator))::after { background-color: Highlight; color: HighlightText; }
+/* With the break at the end and a visible child to carry the pilcrow, the paragraph's own is off; a paragraph of
+   invisible atoms alone (a bookmark and nothing else) keeps its own, its break hidden as an empty paragraph's is. */
+.show-marks .docx-editor p:has(> br.ProseMirror-trailingBreak:last-child):has(> :not(.invisible, br.ProseMirror-trailingBreak, img.ProseMirror-separator))::after { content: none; }
+.show-marks .docx-editor p:has(> br.ProseMirror-trailingBreak:last-child):not(:has(> :not(.invisible, br.ProseMirror-trailingBreak, img.ProseMirror-separator))) > br.ProseMirror-trailingBreak { display: none; }
+.show-marks .docx-editor td > p:last-child::after, .show-marks .docx-editor th > p:last-child::after,
+.show-marks .docx-editor :is(td, th) > p:last-child:has(> br.ProseMirror-trailingBreak:last-child) > :nth-last-child(1 of :not(.invisible, br.ProseMirror-trailingBreak, img.ProseMirror-separator))::after { content: '¤'; }
+/* A bound control's verdict badge is its `::after` in the Template perspective (below): the pilcrow joins it there. */
+.show-marks.show-control-tags .docx-editor p > .sdt-inline[data-verdict]:nth-last-child(2):has(+ br.ProseMirror-trailingBreak:last-child)::after { content: attr(data-verdict) ' ¶'; inline-size: auto; overflow: visible; }
+.show-marks .docx-editor .tab { position: relative; }
+/* An optional break, U+200B (ED-007 section 8.1 item 13): Word's small box with the marks shown; the character selected
+   by a click on it (`plugins/optionalbreaks.ts`), the box then highlighted, so that Delete removes it. */
+.show-marks .docx-editor .optional-break::after { content: '▯'; color: var(--mark-color, inherit); opacity: 0.7; font-size: 0.75em; vertical-align: 0.1em; }
+.show-marks .docx-editor .optional-break.selected::after { background-color: Highlight; color: HighlightText; opacity: 1; }
+.show-marks .docx-editor .tab::before { content: '→'; position: absolute; inset-inline-start: 0; inset-inline-end: 0; text-align: center; text-indent: 0; color: var(--mark-color, inherit); opacity: 0.7; }
+/* A paragraph mark inserted or deleted: its pilcrow after the text, placed as the formatting marks above are (on the
+   node before a trailing break; an empty paragraph's as its list marker, where text would go, section 12.80 item 7). */
+.docx-editor p.rev-mark-ins::after, .docx-editor p.rev-mark-del::after,
+.docx-editor p.rev-mark-ins > :nth-last-child(2):has(+ br.ProseMirror-trailingBreak:last-child)::after,
+.docx-editor p.rev-mark-del > :nth-last-child(2):has(+ br.ProseMirror-trailingBreak:last-child)::after {
+  content: '¶'; color: var(--rev-color); display: inline-block; inline-size: 1ch; margin-inline-end: -1ch; overflow: visible; white-space: pre; text-indent: 0;
+}
+.docx-editor p.rev-mark-ins::after, .docx-editor p.rev-mark-ins > :nth-last-child(2):has(+ br.ProseMirror-trailingBreak:last-child)::after { text-decoration: underline; }
+.docx-editor p.rev-mark-del::after, .docx-editor p.rev-mark-del > :nth-last-child(2):has(+ br.ProseMirror-trailingBreak:last-child)::after { text-decoration: line-through; }
+.docx-editor p.rev-mark-ins:has(> br.ProseMirror-trailingBreak:last-child:not(:only-child))::after,
+.docx-editor p.rev-mark-del:has(> br.ProseMirror-trailingBreak:last-child:not(:only-child))::after { content: none; }
+/* An empty paragraph's: the break hidden, the pilcrow its line (as the formatting marks above), in the views that draw it. */
+.docx-editor .ProseMirror:not(.markup-accepted):not(.markup-original) p.rev-mark-ins:has(> br.ProseMirror-trailingBreak:only-child) > br.ProseMirror-trailingBreak,
+.docx-editor .ProseMirror:not(.markup-accepted):not(.markup-original) p.rev-mark-del:has(> br.ProseMirror-trailingBreak:only-child) > br.ProseMirror-trailingBreak { display: none; }
+/* A row inserted or deleted: its cells tinted (their text is marked as well). */
+.docx-editor tr.rev-row-ins > td, .docx-editor tr.rev-row-del > td { box-shadow: inset 0 0 0 100vmax var(--rev-tint); }
+/* The change bar, in the page's margin at the column's edge (indents are padding, so every body
+   paragraph's is at one place); a table's row draws it at the table's edge, a paragraph in a cell none.
+   A row's bar is its first cell's `::before`, never the row's own: Chromium wraps any child of a table row
+   that is not a cell in an anonymous cell, an absolutely placed pseudo-element included, which took the
+   first column and pushed the row's cells one column over (ED-005 section 12.104). The cell is as tall as
+   its row, so the bar spans the row. A row-level control shown as Tags labels the same pseudo-element, and
+   its label wins there. */
+.docx-editor p.has-change, .docx-editor tr.has-change > td:first-child, .docx-editor .tableWrapper.has-change { position: relative; }
+.docx-editor p.has-change::before, .docx-editor tr.has-change > td:first-child::before, .docx-editor .tableWrapper.has-change::before {
+  content: ''; position: absolute; inset-block: 0; inset-inline-start: -14pt; border-inline-start: 1.5px solid var(--rev-bar); pointer-events: none;
+}
+.docx-editor td p.has-change::before { content: none; }
+/* Markers between blocks (a bookmark, a move's or a comment's range): a thin rule, not a labelled box. */
+.docx-editor .opaque-block.marker { border: 0; border-block-start: 1px dotted #c8c8c8; padding: 0; margin: 0; block-size: 0; }
+.docx-editor .opaque-block.move-marker { border-block-start: 1px solid var(--rev-move); }
+
+/* The three views (ED-005 section 6.4), a class on the body's root (view/markup.ts). As accepted:
+   deletions hidden, insertions and formatting plain, no pilcrow and no bar. A deleted mark hides
+   its paragraph when nothing of it is left, else draws it inline with the next, as accepting
+   joins them: an approximation, the joined line in the container's block formatting. */
+.markup-accepted del.deletion, .markup-accepted .rev-del, .markup-accepted tr.rev-row-del, .markup-accepted p.rev-mark-del.rev-all-del { display: none !important; }
+.markup-accepted ins.insertion, .markup-accepted .rev-ins { color: inherit; text-decoration: none; border: 0; outline: none; }
+.markup-accepted .format-change { text-decoration: none; }
+.markup-accepted p.rev-mark-ins::after, .markup-accepted p.rev-mark-del::after, .markup-accepted .has-change::before, .markup-accepted tr.has-change > td:first-child::before,
+.markup-accepted p.rev-mark-ins > :nth-last-child(2)::after, .markup-accepted p.rev-mark-del > :nth-last-child(2)::after { content: none; }
+.show-marks .markup-accepted p.rev-mark-ins::after, .show-marks .markup-accepted p.rev-mark-ins > :nth-last-child(2):has(+ br.ProseMirror-trailingBreak:last-child)::after { content: '¶'; color: var(--mark-color, inherit); text-decoration: none; }
+.show-marks .markup-accepted p.rev-mark-ins:has(> br.ProseMirror-trailingBreak:last-child:not(:only-child))::after { content: none; }
+.markup-accepted tr.rev-row-ins > td { box-shadow: none; }
+.markup-accepted p.rev-mark-del:not(.rev-all-del),
+.markup-accepted p.rev-mark-del:not(.rev-all-del) + p,
+.markup-accepted p.rev-mark-del:not(.rev-all-del) + p.rev-mark-del.rev-all-del + p,
+.markup-accepted p.rev-mark-del:not(.rev-all-del) + .opaque-block.marker + p {
+  display: inline; margin: 0 !important; padding: 0 !important; text-indent: 0 !important;
+}
+/* Original: insertions hidden, deletions plain; an inserted mark joins its paragraph with the next as a deleted one does above.
+   Formatting and paragraph properties are as they are now, still dotted and barred: CSS cannot take back what an ancestor draws. */
+.markup-original ins.insertion, .markup-original .rev-ins, .markup-original tr.rev-row-ins, .markup-original p.rev-mark-ins.rev-all-ins { display: none !important; }
+.markup-original del.deletion, .markup-original .rev-del { color: inherit; text-decoration: none; background-image: none; outline: none; opacity: 1; }
+.markup-original p.rev-mark-ins::after, .markup-original p.rev-mark-del::after, .markup-original .has-change::before, .markup-original tr.has-change > td:first-child::before,
+.markup-original p.rev-mark-ins > :nth-last-child(2)::after, .markup-original p.rev-mark-del > :nth-last-child(2)::after { content: none; }
+.show-marks .markup-original p.rev-mark-del::after, .show-marks .markup-original p.rev-mark-del > :nth-last-child(2):has(+ br.ProseMirror-trailingBreak:last-child)::after { content: '¶'; color: var(--mark-color, inherit); text-decoration: none; }
+.show-marks .markup-original p.rev-mark-del:has(> br.ProseMirror-trailingBreak:last-child:not(:only-child))::after { content: none; }
+.markup-original p.rev-props::before { content: ''; }
+.markup-original tr.rev-row-del > td { box-shadow: none; }
+.markup-original p.rev-mark-ins:not(.rev-all-ins),
+.markup-original p.rev-mark-ins:not(.rev-all-ins) + p,
+.markup-original p.rev-mark-ins:not(.rev-all-ins) + p.rev-mark-ins.rev-all-ins + p,
+.markup-original p.rev-mark-ins:not(.rev-all-ins) + .opaque-block.marker + p {
+  display: inline; margin: 0 !important; padding: 0 !important; text-indent: 0 !important;
+}
+/* The review panel's current change (plugins/review.ts): both halves of a move. */
+.docx-editor .current-change { background: rgba(59, 130, 196, 0.16); }
+
+/* The gap cursor (prosemirror-gapcursor's own rules): a caret drawn after a table or a block control that nothing follows. */
+.docx-editor .ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; }
+.docx-editor .ProseMirror-gapcursor::after { content: ""; display: block; position: absolute; top: -2px; width: 20px; border-top: 1px solid currentColor; animation: docx4j-gapcursor-blink 1.1s steps(2, start) infinite; }
+@keyframes docx4j-gapcursor-blink { to { visibility: hidden; } }
+.docx-editor.ProseMirror-focused .ProseMirror-gapcursor, .docx-editor .ProseMirror-focused .ProseMirror-gapcursor { display: block; }

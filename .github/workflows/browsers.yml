@@ -1,0 +1,32 @@
+# The review, tracking and comments specs and the review spike in Firefox and WebKit (ED-005 section
+# 9.5, proposal 40): started by hand, never on a push, so it never gates one. `npm run e2e` in
+# test.yml stays Chromium's. What fails here is a finding for ED-005 section 12.
+name: browsers
+
+on:
+  workflow_dispatch:
+
+jobs:
+  browsers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps firefox webkit
+        working-directory: packages/editor
+      - run: npm run e2e:browsers -w @docx4j/editor
+        env:
+          CI: 'true'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: browsers-report
+          path: |
+            packages/editor/playwright-report
+            packages/editor/test-results
+          if-no-files-found: ignore
