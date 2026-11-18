@@ -3,7 +3,9 @@
 // The built application into the companion's own `dist/app`, so that the published package serves
 // it without the (private) `@docx4j/editor` package beside it (ED-005 section 8.1). Run after
 // `npm run build -w @docx4j/editor`; without that build the companion falls back to the
-// repository's `packages/editor/dist`, or to `--app`.
+// repository's `packages/editor/dist`, or to `--app`. The source maps stay behind: they were three quarters of the
+// package (53 of 75 MB unpacked, release plan phase E), and a browser asks for one only while its developer tools are
+// open, when the companion answers 404.
 import { cp, rm, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,5 +20,5 @@ try {
   process.exit(0);
 }
 await rm(to, { recursive: true, force: true });
-await cp(from, to, { recursive: true });
+await cp(from, to, { recursive: true, filter: (src) => !src.endsWith('.map') });
 console.error(`copy-app: ${from} -> ${to}`);

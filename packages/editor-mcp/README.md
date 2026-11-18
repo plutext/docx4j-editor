@@ -24,7 +24,7 @@ claude mcp add docx4j-editor -- npx @docx4j/editor-mcp --root ~/Documents
 From a checkout:
 
 ```
-claude mcp add docx4j-editor -- node ~/git/docx4j-ts-editor/packages/editor-mcp/dist/cli.mjs --root ~/Documents
+claude mcp add docx4j-editor -- node ~/git/docx4j-editor/packages/editor-mcp/dist/cli.mjs --root ~/Documents
 ```
 
 `claude mcp list` shows it. To try it without touching your own configuration, give Claude Code a
@@ -46,7 +46,7 @@ Claude Desktop has no Linux build:
 }
 ```
 
-From a checkout, `"command": "node"` and `"args": ["C:\\path\\to\\docx4j-ts-editor\\packages\\editor-mcp\\dist\\cli.mjs", "--root", "..."]`.
+From a checkout, `"command": "node"` and `"args": ["C:\\path\\to\\docx4j-editor\\packages\\editor-mcp\\dist\\cli.mjs", "--root", "..."]`.
 
 **Loopback only.** The companion binds `127.0.0.1` and refuses a request whose `Host` is anything
 else, so the editor, the relay and MCP over HTTP are reached from a browser on the same machine only.
