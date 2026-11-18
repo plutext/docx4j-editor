@@ -3,7 +3,9 @@
 // Sets the editor's version in every workspace package, which share one, and the packages' references to one another
 // (RELEASING.md). `npm version` sets the versions alone and leaves the references, so the application's exact
 // reference to @docx4j/editor-model would then match no workspace and npm would fetch the published package instead.
-// Afterwards, `npm install` brings the lockfile along.
+// It sets the two constants that carry the version in the code too: the model's EDITOR_VERSION, written to a saved
+// file's app.xml, and the companion's COMPANION_VERSION, reported to an MCP client. Afterwards, `npm install` brings the
+// lockfile along.
 //
 //   node scripts/set-version.mjs 0.1.1
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -33,4 +35,15 @@ for (const { file, json } of manifests) {
   }
   writeFileSync(file, `${JSON.stringify(json, null, 2)}\n`);
   console.log(`${json.name} ${version}`);
+}
+for (const [file, name] of [['editor-model/src/session.mts', 'EDITOR_VERSION'], ['editor-mcp/src/tools.mts', 'COMPANION_VERSION']]) {
+  const path = join(packages, file);
+  const source = readFileSync(path, 'utf8');
+  const constant = new RegExp(`(export const ${name} = ')[^']*(';)`);
+  if (!constant.test(source)) {
+    console.error(`${name} not found in packages/${file}`);
+    process.exit(1);
+  }
+  writeFileSync(path, source.replace(constant, `$1${version}$2`));
+  console.log(`${name} ${version}`);
 }

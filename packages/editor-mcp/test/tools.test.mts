@@ -14,6 +14,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { WordprocessingMLPackage, Texts, PlainText, MarkdownExporter } from '@docx4j/core-ts';
 import { createCompanion, type AgentRoom, type Companion } from '../src/index.mjs';
+import { COMPANION_VERSION } from '../src/tools.mjs';
 import { PHASE0 as phase0, suitePresent, loadRunner } from '../../editor-model/test/text-extraction-suite.mjs';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'editor-model', 'test', 'fixtures');
@@ -87,6 +88,10 @@ async function mainXml(env: Env, document: string): Promise<string> {
   await main.getContents();
   return main.getXml();
 }
+
+test('COMPANION_VERSION is the package\'s version (scripts/set-version.mjs sets both)', () => {
+  expect(COMPANION_VERSION).toBe(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version);
+});
 
 describe('the tools (docs/developer/agent.md, ED-005 section 8.9 step F3)', () => {
   let env: Env;

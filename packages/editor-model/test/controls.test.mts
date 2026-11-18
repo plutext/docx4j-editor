@@ -15,7 +15,7 @@ import {
   CellSelection, TableMap, PLACEHOLDER_TEXT, PLACEHOLDER_STYLE, applyBoundRefresh, plainTextControlRefusal, controlToBind, dataBindRefusal, insideControlHoldingNoControls, type SdtGroup,
 } from '../src/index.mjs';
 import { withSdtItem } from '../src/sdtpr.mjs';
-import { isXhtmlControl, xhtmlBindingOf, xhtmlControlsIn, xhtmlKindOf, readTag, relativeToRepeat } from '../src/index.mjs';
+import { isXhtmlControl, xhtmlBindingOf, xhtmlControlsIn, xhtmlKindOf, readTag, relativeToRepeat, appVersionOf, EDITOR_VERSION } from '../src/index.mjs';
 import type { Node as PMNode } from 'prosemirror-model';
 import { fixture, comparePackages, textOf, mainXml } from './helpers.mjs';
 
@@ -389,7 +389,7 @@ describe('bindings and the OpenDoPE roles', () => {
     expect(control.xmlMapping.customXmlNode!.text).toBe('Ann');
     const reopened = await EditorDocument.open((await session.save()).bytes);
     await reopened.template.load();
-    expect(reopened.template.xpaths).toMatchObject({ version: '3.0', booleanConversion: 'xpath2', authoringTool: 'docx4j-editor', authoringToolVersion: '00.0100', entries: [{ id: 'x1', xpath: '/data/name' }] });
+    expect(reopened.template.xpaths).toMatchObject({ version: '3.0', booleanConversion: 'xpath2', authoringTool: 'docx4j-editor', authoringToolVersion: appVersionOf(EDITOR_VERSION), entries: [{ id: 'x1', xpath: '/data/name' }] });
     expect(reopened.template.dataPart).toMatchObject({ rule: 1 });
     expect(reopened.template.problems).toEqual([]);
     // Unbind removes both the binding and od:xpath.

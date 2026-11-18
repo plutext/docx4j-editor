@@ -3,9 +3,13 @@
 // ED-002 section 3.7 test 5: the `XX.YYYY` rule of ED-001 section 11 item 2.
 import { describe, test, expect } from 'vitest';
 import { WordprocessingMLPackage } from '@docx4j/core-ts';
-import { appVersionOf, writeApplication, APPLICATION_NAME } from '../src/index.mjs';
+import { readFileSync } from 'node:fs';
+import { appVersionOf, writeApplication, APPLICATION_NAME, EDITOR_VERSION } from '../src/index.mjs';
 
 describe('appVersionOf', () => {
+  test('EDITOR_VERSION is the package\'s version (scripts/set-version.mjs sets both)', () => {
+    expect(EDITOR_VERSION).toBe(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version);
+  });
   test('maps major.minor.patch to MM.mmpp', () => {
     expect(appVersionOf('0.3.1')).toBe('00.0301');
     expect(appVersionOf('1.12.4')).toBe('01.1204');

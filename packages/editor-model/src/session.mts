@@ -47,8 +47,8 @@ export const HYPERLINK_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeD
 export const PARTS_REVISION = 'partsRevision';
 export const PARTS_ORIGIN = 'parts';
 
-/** The editor's version, written to `app.xml` as `AppVersion` (kept equal to package.json). */
-export const EDITOR_VERSION = '0.1.0';
+/** The editor's version, written to `app.xml` as `AppVersion` (kept equal to package.json by scripts/set-version.mjs). */
+export const EDITOR_VERSION = '0.1.1';
 
 export interface OpenOptions {
   schema?: Schema;

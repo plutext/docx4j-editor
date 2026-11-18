@@ -1,6 +1,6 @@
 {
   "name": "@docx4j/editor-relay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The co-editing relay for @docx4j/editor: a Hocuspocus server holding each room's Yjs document, with room tokens, plain-file persistence, limits and an idle rule, and (./client) a peer's connection to a room. Run it as docx4j-editor-relay, or embed it with createRelay.",
   "license": "GPL-3.0-or-later",
   "repository": {

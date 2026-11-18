@@ -1,6 +1,6 @@
 {
   "name": "@docx4j/editor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "The docx editor application over @docx4j/editor-model: the ProseMirror view bound to the commands, the perspectives, and the file handling. A static site (ED-001 section 11 item 4).",
   "license": "GPL-3.0-or-later",
@@ -19,7 +19,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
     "@docx4j/core-ts": "^0.9.0",
-    "@docx4j/editor-model": "0.1.0",
+    "@docx4j/editor-model": "0.1.1",
     "@hocuspocus/provider": "^3.4.4",
     "fontoxpath": "^3.34.0",
     "monaco-editor": "^0.52.2",
@@ -40,8 +40,8 @@
     "yjs": "^13.6.0"
   },
   "devDependencies": {
-    "@docx4j/editor-mcp": "^0.1.0",
-    "@docx4j/editor-relay": "^0.1.0",
+    "@docx4j/editor-mcp": "^0.1.1",
+    "@docx4j/editor-relay": "^0.1.1",
     "@modelcontextprotocol/sdk": "1.31.0",
     "@playwright/test": "^1.55.0",
     "@types/react": "^19.1.0",

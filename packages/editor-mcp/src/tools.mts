@@ -64,8 +64,11 @@ function logCall(host: ToolHost, tool: string, args: Structured, result: { isErr
   } catch { /* the log is a courtesy; a call never fails over it */ }
 }
 
+/** The companion's version, which it reports to an MCP client (kept equal to package.json by scripts/set-version.mjs). */
+export const COMPANION_VERSION = '0.1.1';
+
 /** An MCP server with every tool registered over the companion. */
-export function createMcpServer(host: ToolHost, version = '0.1.0'): McpServer {
+export function createMcpServer(host: ToolHost, version = COMPANION_VERSION): McpServer {
   const server = new McpServer({ name: 'docx4j-editor-mcp', version }, { instructions: INSTRUCTIONS });
   // Every tool's answer logged into its room as it goes back.
   const register = server.registerTool.bind(server);

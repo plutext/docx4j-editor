@@ -9,7 +9,7 @@ import { EditorState } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import { WordprocessingMLPackage, textOf as textOfElement, typeNameOf, runItemsOf, deepCopy, applyRunOptions, type Element } from '@docx4j/core-ts';
 import type * as wml from '@docx4j/generated-objects-ts/modules/org_docx4j_wml';
-import { EditorDocument, revive } from '../src/index.mjs';
+import { EditorDocument, revive, appVersionOf, EDITOR_VERSION } from '../src/index.mjs';
 import { fixture, comparePackages, plain, textOf } from './helpers.mjs';
 
 /** A transaction over a bare document (insertText and the marks-at-position rules live on Transaction, not Transform). */
@@ -45,7 +45,7 @@ async function saveEdited(session: EditorDocument, original: Uint8Array, edited:
   expect(diffs).toEqual([]);
   const app = await (await WordprocessingMLPackage.load(saved.bytes)).docPropsExtendedPart!.getXml();
   expect(app).toMatch(/Application>docx4j-editor</);
-  expect(app).toMatch(/AppVersion>00\.0100</);
+  expect(app).toContain(`AppVersion>${appVersionOf(EDITOR_VERSION)}<`);
   return saved.bytes;
 }
 
