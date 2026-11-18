@@ -5,6 +5,8 @@
 //
 //   docx4j-editor-relay [--port 4175] [--host 127.0.0.1] [--data ./rooms]
 //                       [--max-room 209715200] [--idle-days 30] [--origin <url>]...
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createRelay, type RelayOptions } from './index.mjs';
 
 const USAGE = `usage: docx4j-editor-relay [--port n] [--host address] [--data folder] [--max-room bytes] [--idle-days n] [--origin url]...
@@ -66,5 +68,20 @@ async function main(): Promise<void> {
   process.once('SIGTERM', stop);
 }
 
+/**
+ * Whether this module is the program node was started with, through any symbolic links: npm installs a bin as a link
+ * (`node_modules/.bin/docx4j-editor-relay` to this file), and npx starts it there, so `process.argv[1]` names the link, not this
+ * file. A test that imports the module is not the program.
+ */
+function startedAsProgram(): boolean {
+  const program = process.argv[1];
+  if (!program) return false;
+  try {
+    return realpathSync(program) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
 // Run when executed, not when imported (the tests import `parseArguments`).
-if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('docx4j-editor-relay')) void main();
+if (startedAsProgram()) void main();

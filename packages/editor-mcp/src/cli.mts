@@ -7,6 +7,8 @@
 // and the relay on a loopback port of its own (a worker thread, ED-005 section 9.3 item 1 (i)), and MCP over stdio for the client that started it (Claude Code: `claude mcp add
 // docx4j-editor -- npx @docx4j/editor-mcp --root ~/Documents`), unless `--http` says it runs on its
 // own. `--open` shares a file into a room and prints its link on stderr. stdout belongs to MCP.
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { format } from 'node:util';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createCompanion, type CompanionOptions } from './index.mjs';
@@ -48,8 +50,23 @@ export function parseArguments(argv: readonly string[]): CliOptions {
   return { ...out, roots };
 }
 
+/**
+ * Whether this module is the program node was started with, through any symbolic links: npm installs a bin as a link
+ * (`node_modules/.bin/docx4j-editor-mcp` to this file), and npx starts it there, so `process.argv[1]` names the link, not this
+ * file. A test that imports the module is not the program.
+ */
+function startedAsProgram(): boolean {
+  const program = process.argv[1];
+  if (!program) return false;
+  try {
+    return realpathSync(program) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
 // Run only as the bin, not when imported by a test.
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (startedAsProgram()) {
   // stdout is the protocol's (vocabulary section 6): whatever a dependency prints with console.log goes to stderr.
   const toStderr = (...args: unknown[]): void => { process.stderr.write(`${format(...args)}\n`); };
   console.log = toStderr;

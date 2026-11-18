@@ -5,9 +5,12 @@
 // which applies it under its own origin (the agent's path, E4); a read-only connection's update
 // refused; persistence across a restart; the size limit; the idle rule; origins.
 import { afterEach, describe, expect, test } from 'vitest';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat, symlink } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import * as Y from 'yjs';
 import WebSocket from 'ws';
@@ -247,6 +250,18 @@ describe('the relay (ED-004 section 4.2)', () => {
 });
 
 describe('the command line', () => {
+  test('started through a link of any name, as npm\'s bin starts it, the command runs', async () => {
+    // 0.1.0 compared process.argv[1] with its own file, and let a link through only by the bin's name.
+    const cli = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli.mjs');
+    try { await stat(cli); } catch { throw new Error(`build the relay first (npm run build -w @docx4j/editor-relay): no ${cli}`); }
+    const bin = await mkdtemp(join(tmpdir(), 'relay-bin-'));
+    cleanups.push(() => rm(bin, { recursive: true, force: true }));
+    const link = join(bin, 'relay-under-another-name');
+    await symlink(cli, link);
+    const { stdout } = await promisify(execFile)(process.execPath, [link, '--help']);
+    expect(stdout).toContain('usage: docx4j-editor-relay');
+  });
+
   test('the options, and refusals of what is not one', async () => {
     const { parseArguments } = await import('../src/cli.mjs');
     expect(parseArguments(['--port', '5000', '--host', '0.0.0.0', '--data', '/tmp/r', '--max-room', '1024', '--idle-days', '7', '--origin', 'https://a.example', '--origin', 'https://b.example']))

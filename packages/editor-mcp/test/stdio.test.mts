@@ -6,7 +6,7 @@
 // refused on a paragraph the person changed and decides again, comments; the person accepts one of
 // its changes; the agent lists what is left and saves; the file holds what the room holds.
 import { afterEach, describe, expect, test } from 'vitest';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +35,23 @@ async function until(check: () => boolean, ms = 10_000, what = 'a condition'): P
 type Structured = Record<string, unknown>;
 
 describe('the scripted client over stdio (ED-005 section 8.9, step F5)', () => {
+  test('started through a link, as npm\'s bin and npx start it, the companion answers', async () => {
+    // 0.1.0 compared process.argv[1] with its own file, so through node_modules/.bin it exited without a word.
+    try { await stat(cli); } catch { throw new Error(`build the companion first (npm run build -w @docx4j/editor-mcp): no ${cli}`); }
+    const bin = await mkdtemp(join(tmpdir(), 'stdio-bin-'));
+    const root = await mkdtemp(join(tmpdir(), 'stdio-root-'));
+    const data = await mkdtemp(join(tmpdir(), 'stdio-rooms-'));
+    cleanups.push(() => rm(bin, { recursive: true, force: true }), () => rm(root, { recursive: true, force: true }), () => rm(data, { recursive: true, force: true }));
+    const link = join(bin, 'docx4j-editor-mcp');
+    await symlink(cli, link);
+    const transport = new StdioClientTransport({ command: process.execPath, args: [link, '--root', root, '--port', '0', '--data', data], stderr: 'pipe' });
+    const client = new Client({ name: 'linked', version: '1' });
+    await client.connect(transport);
+    cleanups.push(() => client.close());
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name)).toContain('open');
+  });
+
   test('an agent\'s session with a person in the room, from open to save', async () => {
     try { await stat(cli); } catch { throw new Error(`build the companion first (npm run build -w @docx4j/editor-mcp): no ${cli}`); }
     const root = await mkdtemp(join(tmpdir(), 'stdio-root-'));
