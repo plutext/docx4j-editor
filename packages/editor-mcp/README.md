@@ -9,11 +9,10 @@ edit a tracked change waiting for accept or reject. The tools and their contract
 
 An MCP client starts it over stdio.
 
-**The package is not on npm yet** (publishing is a release question). Until it is, run it from a
-checkout of this repository: `npm install` and `npm run build` at the repository's root, then give
-the client `node <checkout>/packages/editor-mcp/dist/cli.mjs` where the lines below say
-`npx @docx4j/editor-mcp`. From the root, `npm run companion -- --root <folder> --open <file>` builds
-and starts it on its own.
+It is on npm, and needs Node 22 or later. To run it from a checkout of this repository instead:
+`npm install` and `npm run build` at the repository's root, then give the client
+`node <checkout>/packages/editor-mcp/dist/cli.mjs` where the lines below say `npx @docx4j/editor-mcp`.
+From the root, `npm run companion -- --root <folder> --open <file>` builds and starts it on its own.
 
 **Claude Code:**
 

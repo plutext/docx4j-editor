@@ -89,12 +89,16 @@ relay's options and deployment.
 
 ## An agent in the document
 
-The companion serves the editor, a relay and the agent's MCP tools as one local process. To start
-it with a file shared:
+The companion serves the editor, a relay and the agent's MCP tools as one local process. It is on
+npm as [`@docx4j/editor-mcp`](https://www.npmjs.com/package/@docx4j/editor-mcp), so it needs no clone. To
+start it with a file shared:
 
 ```
-npm run companion -- --root <folder> --open <file>
+npx @docx4j/editor-mcp --root <folder> --open <file>
 ```
+
+From a clone of this repository, `npm run companion -- --root <folder> --open <file>` builds it and
+starts it the same way.
 
 It listens on `http://127.0.0.1:4174/`. `packages/editor-mcp/README.md` covers connecting Claude
 Code or Claude Desktop to it, and `docs/developer/agent.md` describes the tools.
