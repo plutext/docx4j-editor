@@ -1,5 +1,8 @@
 # docx4j editor
 
+**[Try it](https://plutext.github.io/docx4j-editor/)** in your browser: open one of your own `.docx` files, or the
+sample document.
+
 A Word docx document editor in the browser, including:
 
 - **Review:** tracked changes, written as Word writes them, with a review panel to accept or reject.
