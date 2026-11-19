@@ -1,0 +1,55 @@
+name: demo
+
+# The demo on GitHub Pages (the release plan's phase C): the application built for the project site's path, with
+# document macros off, since a page anyone opens should run no script a document carries. It deploys when a release is
+# published, and by hand from the Actions tab. It runs only in the public repository, where Pages is enabled with
+# "GitHub Actions" as the source.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a run already deploying finishes.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'plutext/docx4j-editor'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - id: pages
+        uses: actions/configure-pages@v6
+      # The application imports the model's build, and its Vite config the relay's.
+      - run: npm run build -w @docx4j/editor-model && npm run build -w @docx4j/editor-relay
+      # base_path is the site's path without a trailing slash (/docx4j-editor).
+      - run: npx vite build --base=${{ steps.pages.outputs.base_path }}/
+        working-directory: packages/editor
+        env:
+          VITE_DOCUMENT_MACROS: 'off'
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: packages/editor/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

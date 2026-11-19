@@ -140,6 +140,15 @@ function browserMatch(): string {
   return matchLanguage(prefs, availableLanguages()) ?? SOURCE_LANGUAGE;
 }
 
+/** The sample document, under the site's base (`public/samples`, written by scripts/build-sample.mjs). */
+const SAMPLE_PATH = 'samples/hello-world.docx';
+
+/** The site's base path, as Vite's `--base` set it (`/docx4j-editor/` for the demo on GitHub Pages). */
+function siteBase(): string {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+  return env?.['BASE_URL'] ?? '/';
+}
+
 export function App() {
   const tr = useT();
   const lang = useLanguage();
@@ -1021,6 +1030,15 @@ export function App() {
     try { await openFile(await fromFile(file, handle)); } catch (e) { setStatus(t('status.open.failedFile', { name: file.name, error: (e as Error).message })); }
   }, [openFile]);
 
+  /** The site's sample document (`public/samples`, the release plan's phase C), opened as a file without a handle, so Save downloads a copy. */
+  const openSample = useCallback(async () => {
+    try {
+      const response = await fetch(`${siteBase()}${SAMPLE_PATH}`);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+      await openFile({ name: SAMPLE_PATH.slice(SAMPLE_PATH.lastIndexOf('/') + 1), bytes: new Uint8Array(await response.arrayBuffer()), lastModified: Date.now() });
+    } catch (e) { setStatus(t('status.sample.failed', { error: (e as Error).message })); }
+  }, [openFile]);
+
   /** New: the page size asked the first time, then the document made in the kept size. */
   const startNew = useCallback(async (size?: PageSizePaper) => {
     const chosen = size ?? pageSize;
@@ -1411,7 +1429,12 @@ export function App() {
                 {editor && <CommentsMargin editor={editor} session={open.session} me={localUser(userName).name} onStatus={setStatus} onActivate={onActivate} onDestroy={onSurfaceDestroy} shortcuts={shortcuts} />}
               </div>
             )
-            : <div className={`drop-zone${over ? ' over' : ''}`}>{tr('app.dropZone')}</div>}
+            : (
+              <div className={`drop-zone${over ? ' over' : ''}`}>
+                <p>{tr('app.dropZone')}</p>
+                <button type="button" data-testid="open-sample" onClick={() => void openSample()}>{tr('app.openSample')}</button>
+              </div>
+            )}
         </div>
         {editor && open && panelShown && (
           <>
