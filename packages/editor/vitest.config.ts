@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
  * reloaded there, ED-003 section 11.2 item 18), with jsonix's own Node entry.
  */
 const jsonixBrowser = fileURLToPath(new URL('../../node_modules/@docx4j/jsonix/jsonix.mjs', import.meta.url));
-const nodeFiles = ['test/newdoc.test.ts', 'test/room-client.test.ts', 'test/normalisation.test.ts'];
+const nodeFiles = ['test/newdoc.test.ts', 'test/room-client.test.ts', 'test/normalisation.test.ts', 'test/changed-since.test.ts'];
 
 export default defineConfig({
   plugins: [react()],

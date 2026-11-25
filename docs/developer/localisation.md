@@ -101,24 +101,24 @@ contributions says.
 <!-- locales:coverage -->
 | Language | File | Keys | Status |
 |---|---|---|---|
-| English | `en` | 1627/1627 | source |
-| Arabic | `ar` | 1625/1627 | draft |
-| German | `de` | 1625/1627 | draft |
-| Spanish | `es` | 1625/1627 | draft |
-| French | `fr` | 1625/1627 | draft |
-| Indonesian | `id` | 1625/1627 | draft |
-| Italian | `it` | 1625/1627 | draft |
-| Japanese | `ja` | 1625/1627 | draft |
-| Korean | `ko` | 1625/1627 | draft |
-| Malay | `ms` | 1625/1627 | draft |
-| Dutch | `nl` | 1625/1627 | draft |
-| Polish | `pl` | 1625/1627 | draft |
-| Portuguese | `pt` | 1625/1627 | draft |
-| Russian | `ru` | 1625/1627 | draft |
-| Thai | `th` | 1625/1627 | draft |
-| Turkish | `tr` | 1625/1627 | draft |
-| Ukrainian | `uk` | 1625/1627 | draft |
-| Vietnamese | `vi` | 1625/1627 | draft |
-| Simplified Chinese | `zh-Hans` | 1625/1627 | draft |
-| Traditional Chinese | `zh-Hant` | 1625/1627 | draft |
+| English | `en` | 1659/1659 | source |
+| Arabic | `ar` | 1659/1659 | draft |
+| German | `de` | 1659/1659 | draft |
+| Spanish | `es` | 1659/1659 | draft |
+| French | `fr` | 1659/1659 | draft |
+| Indonesian | `id` | 1659/1659 | draft |
+| Italian | `it` | 1659/1659 | draft |
+| Japanese | `ja` | 1659/1659 | draft |
+| Korean | `ko` | 1659/1659 | draft |
+| Malay | `ms` | 1659/1659 | draft |
+| Dutch | `nl` | 1659/1659 | draft |
+| Polish | `pl` | 1659/1659 | draft |
+| Portuguese | `pt` | 1659/1659 | draft |
+| Russian | `ru` | 1659/1659 | draft |
+| Thai | `th` | 1659/1659 | draft |
+| Turkish | `tr` | 1659/1659 | draft |
+| Ukrainian | `uk` | 1659/1659 | draft |
+| Vietnamese | `vi` | 1659/1659 | draft |
+| Simplified Chinese | `zh-Hans` | 1659/1659 | draft |
+| Traditional Chinese | `zh-Hant` | 1659/1659 | draft |
 <!-- /locales:coverage -->

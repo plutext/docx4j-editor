@@ -1,6 +1,6 @@
 {
   "name": "@docx4j/editor-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "The MCP companion for @docx4j/editor: one local process serving the editor, its co-editing relay and MCP tools, so that an agent edits a document in a room beside a person, every edit a tracked change waiting for a decision.",
   "license": "GPL-3.0-or-later",
   "repository": {
@@ -42,8 +42,8 @@
   },
   "dependencies": {
     "@docx4j/core-ts": "^0.9.0",
-    "@docx4j/editor-model": "^0.1.1",
-    "@docx4j/editor-relay": "^0.1.1",
+    "@docx4j/editor-model": "^0.2.0",
+    "@docx4j/editor-relay": "^0.2.0",
     "@docx4j/generated-objects-ts": "^0.9.0",
     "@modelcontextprotocol/sdk": "1.31.0",
     "prosemirror-model": "^1.25.0",

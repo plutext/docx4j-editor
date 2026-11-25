@@ -133,6 +133,7 @@ For people using the editor, in [`docs/user/`](docs/user):
 - [`review.md`](docs/user/review.md): reviewing, tracking changes, comments and the agent;
 - [`co-editing.md`](docs/user/co-editing.md): sharing a document;
 - [`files.md`](docs/user/files.md): opening, saving, and a file changed on disk;
+- [`phone.md`](docs/user/phone.md): the layout on a phone, for simple edits and review;
 - [`printing.md`](docs/user/printing.md);
 - [`developer-perspective.md`](docs/user/developer-perspective.md): the Developer perspective, and
   [`Help_AskBox.md`](docs/user/Help_AskBox.md), its Ask box.

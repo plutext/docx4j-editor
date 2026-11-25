@@ -135,9 +135,12 @@ export type SaveOutcome =
   | { kind: 'changed-on-disk'; lastModified: number }
   | { kind: 'cancelled' };
 
+/** The media type of a saved file, by its name's form. */
+const typeOfName = (name: string): string => (formatOfName(name) === 'flatOpc' ? FLAT_OPC_TYPE : DOCX_TYPE);
+
 /** The bytes of a download, typed by the name's form; never overwrites anything. */
 export function download(bytes: Uint8Array, name: string): void {
-  const blob = new Blob([bytes as BlobPart], { type: formatOfName(name) === 'flatOpc' ? FLAT_OPC_TYPE : DOCX_TYPE });
+  const blob = new Blob([bytes as BlobPart], { type: typeOfName(name) });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -166,6 +169,84 @@ export async function saveAsDownload(session: EditorDocument, name: string): Pro
   return { kind: 'saved', result: out.result, how: 'download' };
 }
 
+type ShareNavigator = Navigator & {
+  canShare?: (data: { files: File[] }) => boolean;
+  share?: (data: { files: File[] }) => Promise<void>;
+  userActivation?: { isActive: boolean };
+  userAgentData?: { brands?: { brand: string }[] };
+};
+
+/**
+ * Whether the browser is built on Chromium (Chrome, Edge, Samsung Internet, Opera): its brands where it states them, else its
+ * user agent. Chrome on iOS (`CriOS`) is WebKit's and says no `Chrome/`.
+ */
+export function isChromium(n: ShareNavigator | undefined = typeof navigator === 'undefined' ? undefined : navigator): boolean {
+  if (!n) return false;
+  const brands = n.userAgentData?.brands;
+  if (brands) return brands.some((b) => b.brand === 'Chromium');
+  return /\b(Chrome|Chromium)\//.test(n.userAgent ?? '');
+}
+
+/**
+ * Whether the browser can hand a Word document to another application through the system's share sheet (the Web Share
+ * API's file form; ED-013 section 3.8, P8). Never in a Chromium browser (UPSTREAM-28): Chromium shares only the types on its
+ * list (PDF, text, images, audio and video), refuses a `.docx` at `share()` with `NotAllowedError`, and its `canShare` says
+ * yes all the same (measured on Chrome 157 for Android, ED-013 section 9). Elsewhere asked of `canShare` with an empty
+ * `.docx`, since a browser accepts or refuses a file by its name and type.
+ */
+export function canShareFiles(): boolean {
+  const n = (typeof navigator === 'undefined' ? undefined : navigator) as ShareNavigator | undefined;
+  // UPSTREAM-28: Chromium refuses a .docx at share() whatever canShare says.
+  if (typeof n?.share !== 'function' || typeof n.canShare !== 'function' || isChromium(n)) return false;
+  try { return n.canShare({ files: [new File([], 'document.docx', { type: DOCX_TYPE })] }); } catch { return false; }
+}
+
+/**
+ * How Send a copy went. `ready`: the copy is made but the tap's activation is spent (a long export can outlast Chrome's
+ * five seconds), so a second tap sends it (`sendFile` with `again`). `unsupported`: `canShare` refuses this file (Flat
+ * OPC, where it takes a `.docx`). `refused`: `share` refused it with the tap's activation there, as Chromium refuses every
+ * type off its list: the browser will not send the file.
+ */
+export type SendOutcome =
+  | { kind: 'sent' }
+  | { kind: 'cancelled' }
+  | { kind: 'ready'; file: File }
+  | { kind: 'unsupported' }
+  | { kind: 'refused' }
+  | Extract<SaveOutcome, { kind: 'self-check-failed' }>;
+
+/**
+ * Send a copy (ED-013 section 3.8, P8): the document exported with the self-check, as a download is, and the file handed to
+ * the system's share sheet. Nothing is written and the document is not marked saved: the copy goes elsewhere.
+ */
+export async function sendCopy(session: EditorDocument, name: string): Promise<SendOutcome> {
+  const out = await exportChecked(session, formatOfName(name));
+  if ('error' in out) return { kind: 'self-check-failed', error: out.error, diagnosis: out.diagnosis, format: out.format };
+  return sendFile(new File([out.result.bytes as BlobPart], name, { type: typeOfName(name) }));
+}
+
+/**
+ * A made copy handed to the share sheet. The share needs a tap's activation: without one the copy is `ready` for a second
+ * tap, whose call passes `again`. A `NotAllowedError` is the browser refusing the file itself (`refused`) when the activation
+ * was there or on the second tap; where the browser cannot say whether it was (no `userActivation`), the first is taken as
+ * the activation spent. A share sheet closed without a choice is `cancelled`.
+ */
+export async function sendFile(file: File, again = false): Promise<SendOutcome> {
+  const n = navigator as ShareNavigator;
+  if (typeof n.share !== 'function' || n.canShare?.({ files: [file] }) === false) return { kind: 'unsupported' };
+  const active = n.userActivation?.isActive;
+  if (!again && active === false) return { kind: 'ready', file };
+  try {
+    await n.share({ files: [file] });
+    return { kind: 'sent' };
+  } catch (e) {
+    const name = (e as Error).name;
+    if (name === 'AbortError') return { kind: 'cancelled' };
+    if (name === 'NotAllowedError') return again || active === true ? { kind: 'refused' } : { kind: 'ready', file };
+    throw e;
+  }
+}
+
 /**
  * Save As through the picker, or a download without one; returns the new handle with the outcome. `flatOpc` suggests the
  * name as Flat OPC, with its type first (the palette's Save as Flat OPC XML). The export and its self-check run before the
@@ -192,16 +273,36 @@ export async function saveAs(session: EditorDocument, name: string, options: { f
   return { kind: 'saved', result: out.result, how: 'handle', handle, name: handle.name };
 }
 
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 /**
- * Save in place: refuse when the file changed on disk since it was opened (Word or someone else
- * wrote it), otherwise export with the self-check and write through the handle.
+ * Whether a file is no longer the one the editor last read or wrote: its time is not the one recorded, and its bytes are
+ * not `known` (or none are held). A time that moved over the same bytes is no change. Android's document providers report
+ * a file's time from MediaStore, and once a time read just after the editor's own write was not the one the file kept:
+ * the next Save in place was refused as "changed on disk" and the editor's own write offered for reload (ED-013 section 9).
+ * The bytes are read only when the times differ.
  */
-export async function saveInPlace(session: EditorDocument, handle: FileHandle, openedAt: number): Promise<SaveOutcome & { lastModified?: number }> {
+export async function changedSince(file: File, lastModified: number, known?: Uint8Array): Promise<boolean> {
+  if (file.lastModified === lastModified) return false;
+  if (!known || file.size !== known.length) return true;
+  return !sameBytes(new Uint8Array(await file.arrayBuffer()), known);
+}
+
+/**
+ * Save in place: refuse when the file changed on disk since it was opened or last saved (Word or someone else wrote it),
+ * otherwise export with the self-check and write through the handle. `known` is the file's bytes as the editor last read
+ * or wrote them: a time that moved over them is not a change (`changedSince`).
+ */
+export async function saveInPlace(session: EditorDocument, handle: FileHandle, openedAt: number, known?: Uint8Array): Promise<SaveOutcome & { lastModified?: number }> {
   // A handle another tab stored (ED-011 section 3.6, P5), or a drop's read-only one: the permission asked here,
   // from the click, where Chromium grants it; refused, the save is cancelled and Save As remains.
   if (!(await ensureWritable(handle))) return { kind: 'cancelled' };
   const current = await handle.getFile();
-  if (current.lastModified !== openedAt) return { kind: 'changed-on-disk', lastModified: current.lastModified };
+  if (await changedSince(current, openedAt, known)) return { kind: 'changed-on-disk', lastModified: current.lastModified };
   const out = await exportChecked(session, formatOfName(handle.name));
   if ('error' in out) return failed(out);
   await writeHandle(handle, out.result.bytes);

@@ -12,7 +12,13 @@ import { PAGE_SIZES, MARGIN_PRESETS as MARGINS_TWIPS, type PageSizePaper } from 
 import { useT } from './i18n.js';
 
 /** The controls Tab moves between inside a dialog. */
-const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+export const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Whether no element has the focus (the one that had it removed): the time to give it back to the opener. */
+export function focusIsNowhere(): boolean {
+  const el = document.activeElement;
+  return el === null || el === document.body || el === document.documentElement;
+}
 
 /**
  * A modal dialog (ED-005 section 9.5, accessibility): labelled, Escape closing it, Tab and
@@ -31,7 +37,9 @@ export function Dialog({ title, onClose, onOk, children, okLabel }: { title: str
     return () => {
       // React's StrictMode unmounts once at mount without removing the element (development only): nothing to give back then.
       if (el?.isConnected) return;
-      if (opener?.isConnected) opener.focus();
+      // Only when the focus went with the element: what took it in the same commit (a dialog's field, ED-013
+      // section 9) keeps it.
+      if (opener?.isConnected && focusIsNowhere()) opener.focus();
     };
   }, [opener]);
   const trap = (e: KeyboardEvent<HTMLFormElement>): void => {
@@ -410,6 +418,16 @@ export function DiscardCloseDialog({ name, onConfirm, onClose }: { name: string;
   return (
     <Dialog title={t('closeDialog.title')} okLabel={t('closeDialog.ok')} onClose={onClose} onOk={onConfirm}>
       <p data-testid="close-ask-body">{t('closeDialog.body', { name })}</p>
+    </Dialog>
+  );
+}
+
+/** Send a copy's second tap (ED-013 section 3.8): the copy is made, but the first tap's activation was spent on making it. */
+export function SendReadyDialog({ name, onSend, onClose }: { name: string; onSend: () => void; onClose: () => void }) {
+  const t = useT();
+  return (
+    <Dialog title={t('send.ready.title')} okLabel={t('send.ready.ok')} onClose={onClose} onOk={onSend}>
+      <p data-testid="send-ready-body">{t('send.ready.body', { name })}</p>
     </Dialog>
   );
 }

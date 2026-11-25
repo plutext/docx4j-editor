@@ -298,25 +298,25 @@ export function selectEntry(editor: DocxEditorView, entry: ReviewEntry, half: 'd
 }
 
 /**
+ * The entry a step goes to, without going round: the next (`dir` 1) or previous (-1) after `current`, else after the
+ * position `at` (the selection's start); none past the last or before the first. The phone's bar greys its Previous and
+ * Next by it (ED-013 section 9), so a step and its button read one rule.
+ */
+export function stepTarget(entries: readonly ReviewEntry[], current: ReviewEntry | undefined, at: number, dir: 1 | -1): ReviewEntry | undefined {
+  const i = current ? entries.indexOf(current) : -1;
+  if (dir > 0) return i >= 0 ? entries[i + 1] : entries.find((e) => e.from > at);
+  return i >= 0 ? entries[i - 1] : [...entries].reverse().find((e) => e.from < at);
+}
+
+/**
  * The next (`dir` 1) or previous (-1) entry after the selection, selected; at the end, round to the
  * first (or the last). What happened, for the status line.
  */
 export function stepEntry(editor: DocxEditorView, session: EditorDocument, dir: 1 | -1, entries = reviewEntries(editor.state, session, splitsOf(editor))): 'moved' | 'wrapped' | 'none' {
   if (entries.length === 0) return 'none';
-  const current = currentEntry(editor, entries);
-  const at = current ? current.from : editor.state.selection.from;
-  const i = current ? entries.indexOf(current) : -1;
-  let next: ReviewEntry | undefined;
-  let wrapped = false;
-  if (dir > 0) {
-    next = i >= 0 ? entries[i + 1] : entries.find((e) => e.from > at);
-    if (!next) { next = entries[0]; wrapped = true; }
-  } else {
-    next = i >= 0 ? entries[i - 1] : [...entries].reverse().find((e) => e.from < at);
-    if (!next) { next = entries[entries.length - 1]; wrapped = true; }
-  }
-  selectEntry(editor, next!);
-  return wrapped ? 'wrapped' : 'moved';
+  const target = stepTarget(entries, currentEntry(editor, entries), editor.state.selection.from, dir);
+  selectEntry(editor, target ?? (dir > 0 ? entries[0]! : entries[entries.length - 1]!));
+  return target ? 'moved' : 'wrapped';
 }
 
 /** Resolve through a command, and how many changes it resolved (its `RESOLVED_META`). */

@@ -26,6 +26,7 @@ import { tablesPlugins } from './plugins/tables.js';
 import { columnSelectPlugin } from './plugins/columnselect.js';
 import { tableConditionsPlugin, tableConditionsKey } from './plugins/tableconditions.js';
 import { controlsPlugin } from './plugins/controls.js';
+import { textInputPlugin } from './plugins/textinput.js';
 import { pastePlugin, pasteOptionsOf } from './paste.js';
 import { findPlugin } from './plugins/find.js';
 import { nodeViews, markViews, type NodeViewOptions } from './nodeviews/index.js';
@@ -127,6 +128,7 @@ export class EditableStoryView extends SurfaceBase {
         linksPlugin(session),
         decorationsPlugin(session, { story: true, ...(options.fields ? { fields: options.fields } : {}) }),
         controlsPlugin(session, {}),
+        textInputPlugin(),
         pastePlugin(session, pasteOptionsOf(options)),
         findPlugin(session),
         ...(options.plugins ?? []),

@@ -27,6 +27,7 @@ import { tablesPlugins } from './plugins/tables.js';
 import { columnSelectPlugin } from './plugins/columnselect.js';
 import { tableConditionsPlugin, tableConditionsKey, TABLE_STYLES_CHANGED } from './plugins/tableconditions.js';
 import { controlsPlugin, CONTROLS_CHANGED, type ControlsPluginOptions } from './plugins/controls.js';
+import { textInputPlugin } from './plugins/textinput.js';
 import { verdictsPlugin, TEMPLATE_CHANGED } from './plugins/verdicts.js';
 import { findPlugin } from './plugins/find.js';
 import { markupPlugin, markupKey, setMarkupView, revealsHidden, type MarkupView } from './markup.js';
@@ -157,6 +158,8 @@ export class DocxEditorView extends SurfaceBase implements StylesheetOwner {
         linksPlugin(session),
         decorationsPlugin(session, options.headersAndFooters === false ? {} : { boundary: boundaryStories(this, options) }),
         controlsPlugin(session, options.onDrop ? { onDrop: options.onDrop } : {}),
+        // Text input narrowed to what changed: a composition inside a marked run keeps its caret (ED-013 section 9).
+        textInputPlugin(),
         verdictsPlugin(session, session.controlEntry),
         pastePlugin(session, pasteOptionsOf(options)),
         findPlugin(session),

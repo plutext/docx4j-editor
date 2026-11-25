@@ -1,0 +1,197 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* The compact layout for phones (ED-013): every rule under `.app.compact`, so a desktop's rendering is unchanged. */
+
+/* The root scrolls (section 3.10, P12): the document scrolls with the page's root scroller, so Chrome hides its address
+   bar as the reader scrolls down; the top bar is sticky. The desktop keeps its inner scroll containers (ED-005 section
+   12.111). Nothing scrolls sideways but a wide table inside its wrapper. */
+html:has(.app.compact), body:has(.app.compact) { overflow-x: clip; }
+.app.compact { block-size: auto; min-block-size: 100dvh; overflow: visible; }
+.app.compact .workspace { display: block; overflow: visible; }
+.app.compact .page-area { overflow: visible; padding-inline: 0; }
+.app.compact .status-bar { position: sticky; inset-block-end: 0; z-index: 5; }
+.app.compact .drop-zone { margin: 1rem 12px; padding: 1.5rem 1rem; }
+
+/* The top bar (section 3.2): one row, sticky, its controls a finger's size. */
+.app.compact .compact-bar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 5;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  padding-block: 0.2rem;
+  padding-inline: 0.25rem;
+  min-block-size: 44px;
+  box-sizing: border-box;
+}
+.app.compact .compact-bar > * { flex: 0 0 auto; }
+.app.compact .compact-bar .name { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.app.compact .compact-bar .spacer { flex: 1 1 0; }
+.app.compact .compact-bar button { min-block-size: 36px; }
+.app.compact .compact-bar .tool { min-inline-size: 36px; padding-inline: 0.25rem; border: 1px solid transparent; background: transparent; font-size: 1.15rem; }
+.app.compact .compact-bar .tool:disabled { color: #aaa; }
+.app.compact .compact-menu-button { min-inline-size: 40px; border: 1px solid transparent; background: transparent; font-size: 1.3rem; }
+.app.compact .compact-bar .tracking-switch { padding-inline: 0.4rem; border: 1px solid #c8c8c8; border-radius: 3px; background: #f6f6f6; }
+.app.compact .compact-bar .perspectives { display: flex; }
+.app.compact .compact-bar .perspectives button { padding-inline: 0.45rem; }
+
+/* The page, reflowed (section 3.5, P4): the text at the narrower of its own width and the screen's less 24 px, with 12 px
+   either side, centred; no shadow, no page edge. Where the text fits, its lines break as Word's do. A later section's
+   width is ignored. Only the body: a note's or a header's view shares the class. */
+.app.compact .page-and-margin { display: block; inline-size: auto; min-inline-size: 0; }
+.app.compact .page-column { inline-size: auto; }
+.app.compact .docx-editor.body {
+  box-sizing: content-box;
+  inline-size: min(var(--text-width, 451pt), calc(100vw - 24px));
+  padding-inline: 12px;
+  padding-block: 12px;
+  margin-block: 0;
+  margin-inline: auto;
+  box-shadow: none;
+}
+.app.compact .docx-editor.body [class^="sect-"], .app.compact .docx-editor.body [class*=" sect-"] { margin-inline-end: 0; }
+/* A page boundary: its band at the column's width, the headers and footers it draws hidden. */
+.app.compact .docx-editor.body .page-boundary, .app.compact .docx-editor.body .page-start, .app.compact .docx-editor.body .page-end { margin-inline: -12px; }
+.app.compact .docx-editor.body .boundary-header, .app.compact .docx-editor.body .boundary-footer { display: none; }
+.app.compact .docx-editor.body .page-boundary { margin-block: 8px; }
+/* A table wider than the screen scrolls sideways inside its wrapper; the page does not. */
+.app.compact .docx-editor.body .tableWrapper { overflow-x: auto; }
+.app.compact .docx-editor.body img { max-inline-size: 100%; block-size: auto; }
+/* The comments' margin is not drawn (section 3.7: its threads come as a sheet, S3). */
+.app.compact .comments-margin { display: none; }
+.app.compact .footnotes-panel { max-inline-size: calc(100vw - 24px); margin-inline: auto; }
+
+/* A hidden file input the menu's Open uses where the browser has no pickers. */
+.compact-open-input { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* Sheets (section 3.6). */
+.sheet-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; justify-content: flex-end; }
+.sheet {
+  box-sizing: border-box;
+  max-block-size: 85dvh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-start-start-radius: 12px;
+  border-start-end-radius: 12px;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.2);
+  padding-block-end: env(safe-area-inset-bottom, 0);
+}
+/* A swipe down on the handle or the title closes the sheet; the body scrolls itself. */
+.sheet-top { flex: 0 0 auto; cursor: grab; touch-action: none; }
+.sheet-handle { block-size: 20px; position: relative; }
+.sheet-handle::after { content: ''; position: absolute; inset-block-start: 8px; inset-inline-start: calc(50% - 20px); inline-size: 40px; block-size: 4px; border-radius: 2px; background: #c8c8c8; }
+.sheet-head { flex: 0 0 auto; display: flex; align-items: center; padding-inline: 16px 4px; }
+.sheet-head h2 { flex: 1 1 auto; margin: 0; font-size: 1.05rem; }
+.sheet-close { min-inline-size: 44px; min-block-size: 44px; border: 0; background: transparent; font-size: 1.5rem; color: #555; }
+.sheet-body { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding-inline: 8px; padding-block-end: 12px; }
+.sheet-group { display: flex; flex-direction: column; border-block-end: 1px solid #e3e3e3; padding-block: 4px; }
+.sheet-item { min-block-size: 44px; padding-inline: 8px; border: 0; background: transparent; text-align: start; font-size: 1rem; color: #111; }
+.sheet-item:disabled { color: #aaa; }
+.sheet-item:active:not(:disabled) { background: #eef3fa; }
+.sheet-options > summary { min-block-size: 44px; display: flex; align-items: center; padding-inline: 8px; font-size: 1rem; cursor: pointer; }
+.sheet-options .options-fields { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.25rem 8px 0.5rem; }
+.sheet-options fieldset { border: 0; border-block-start: 1px solid #e3e3e3; margin: 0; padding: 0.35rem 0 0; min-inline-size: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.sheet-options legend { padding: 0; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #666; }
+.sheet-options label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.95rem; }
+.sheet-options label.check { flex-direction: row; align-items: baseline; gap: 0.45rem; }
+.sheet-options input[type="text"], .sheet-options input[type="url"], .sheet-options input[type="password"], .sheet-options input[type="number"], .sheet-options select { font: inherit; min-block-size: 36px; max-inline-size: 100%; box-sizing: border-box; }
+
+/* With the keyboard open the status bar is not drawn: what is left above the keyboard is the document's (sections 3.3
+   and 3.10; the bar above the keyboard, S2, takes its place). */
+.app.compact.keyboard-open > .status-bar { display: none; }
+
+/* Where the keyboard covers the page instead of shrinking it (iOS Safari, which has no `interactive-widget`), the sticky
+   bars, placed against the layout viewport, are moved into the visual one: the top bar down by the part scrolled above
+   the screen, the bottom bars up by the part under the keyboard (`useViewportGaps`). Both are 0 where the page shrinks. */
+.app.compact .compact-bar { transform: translateY(var(--vv-top, 0px)); transition: opacity 0.15s; }
+.app.compact > .status-bar, .app.compact > .keyboard-bar { transform: translateY(calc(-1 * var(--vv-bottom, 0px))); transition: opacity 0.15s; }
+/* They lag behind a scroll there, riding with the page (the bottom one behind the keyboard), then jump: faded out while
+   the scroll lasts, back when it settles. */
+.vv-moving .app.compact .compact-bar, .vv-moving .app.compact > .keyboard-bar, .vv-moving .app.compact > .status-bar { opacity: 0; pointer-events: none; transition: opacity 0.05s; }
+
+/* With the keyboard up on iOS (marked `apple-touch` at start, `stopFocusZoom`), Safari counts as visible only what is above a band it keeps over the keyboard
+   for its floating address pill and form bar, yet draws the page in that band, behind its glass: the page showed through
+   under the bar. The bar's colour is carried down over the band (a shadow, which adds nothing to the page's scrolling;
+   the keyboard covers whatever reaches past it). */
+.apple-touch .app.compact.keyboard-open > .keyboard-bar { box-shadow: 0 200px 0 200px #f3f3f3; }
+
+/* The bar above the keyboard (section 3.4, P3): in the status bar's place, sticky at the bottom of the layout viewport,
+   which `interactive-widget=resizes-content` ends at the keyboard. One row: the context's groups, then Done (an icon) at the end.
+   It scrolls sideways itself where its buttons are wider than the screen, never the page (ED-005 section 12.111). */
+.app.compact > .keyboard-bar {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-sizing: border-box;
+  min-block-size: 44px;
+  padding-block: 0.2rem;
+  padding-inline: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  background: #f3f3f3;
+  border-block-start: 1px solid #c8c8c8;
+}
+.keyboard-bar .keyboard-group { display: flex; flex: 0 0 auto; gap: 0.25rem; }
+.keyboard-bar .keyboard-group + .keyboard-group { padding-inline-start: 0.4rem; border-inline-start: 1px solid #c8c8c8; }
+.keyboard-bar button {
+  flex: 0 0 auto;
+  min-block-size: 36px;
+  min-inline-size: 0;
+  padding-inline: 0.6rem;
+  border: 1px solid #c8c8c8;
+  border-radius: 4px;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 0.95rem;
+}
+.keyboard-bar button:active { background: #eef3fa; }
+/* Previous and Next at the first change and the last: greyed, but not `disabled`, which would let a tap take the focus. */
+.keyboard-bar button[aria-disabled="true"] { color: #aaa; background: #f7f7f7; }
+/* Done is an icon (the keyboard-hiding symbol), its name in its label: a 44 px target, centred. */
+.keyboard-bar .keyboard-done { margin-inline-start: auto; display: inline-flex; align-items: center; justify-content: center; min-inline-size: 44px; padding-inline: 0.4rem; }
+.keyboard-bar .keyboard-done-icon { display: block; inline-size: 24px; block-size: 24px; }
+/* Landscape with the keyboard open: a strip of about 32 px (section 3.10, P11). */
+.app.compact.keyboard-open.landscape > .keyboard-bar { min-block-size: 32px; padding-block: 0.1rem; }
+.app.compact.keyboard-open.landscape > .keyboard-bar button { min-block-size: 28px; padding-inline: 0.5rem; }
+.app.compact.keyboard-open.landscape > .keyboard-bar .keyboard-done { min-inline-size: 36px; }
+.app.compact.keyboard-open.landscape > .keyboard-bar .keyboard-done-icon { inline-size: 20px; block-size: 20px; }
+
+/* The new comment's sheet (section 3.7). */
+.sheet-quote { margin: 0.25rem 8px 0.5rem; padding-inline-start: 0.6rem; border-inline-start: 3px solid #e6c84f; color: #444; font-size: 0.95rem; overflow-wrap: anywhere; }
+.sheet-text { display: block; box-sizing: border-box; inline-size: calc(100% - 16px); margin-inline: 8px; min-block-size: 4.5rem; font: inherit; font-size: 1rem; resize: vertical; }
+.sheet-actions { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.5rem 8px 0; }
+.sheet-actions button { min-block-size: 40px; padding-inline: 1rem; font: inherit; border: 1px solid #c8c8c8; border-radius: 4px; background: #fff; }
+.sheet-actions button.primary { background: #1a5fb4; border-color: #1a5fb4; color: #fff; }
+.sheet-actions button.primary:disabled { background: #9db6d6; border-color: #9db6d6; }
+.sheet-field { display: flex; flex-direction: column; gap: 0.2rem; margin: 0 8px 0.5rem; font-size: 0.95rem; }
+.sheet-field input { font: inherit; font-size: 1rem; min-block-size: 36px; box-sizing: border-box; }
+
+/* The changes as a sheet (section 3.7, P5): the review panel as the side panel draws it, its title the sheet's, its buttons a
+   finger's size. Accept all and Reject all ask first, in a line under the buttons. */
+.review-sheet .review-panel { padding-inline: 8px; }
+.review-sheet .review-panel > h2 { display: none; }
+.review-sheet .review-head button, .review-sheet .review-entry-actions button, .review-sheet .review-author-actions button, .review-sheet .review-confirm button, .review-sheet .review-hint button {
+  min-block-size: 40px;
+  padding-inline: 0.75rem;
+  font: inherit;
+  font-size: 0.95rem;
+}
+.review-sheet .review-entry { padding-block: 0.45rem; }
+.review-sheet .review-entry-main { min-block-size: 40px; }
+.review-sheet .review-view label, .review-sheet .review-by-author { min-block-size: 32px; display: inline-flex; align-items: center; gap: 0.3rem; }
+.review-confirm { margin: 0 0 0.5rem; padding: 0.5rem; border: 1px solid #e6c84f; border-radius: 4px; background: #fff8e1; }
+.review-confirm button.primary { background: #1a5fb4; border: 1px solid #1a5fb4; border-radius: 4px; color: #fff; }
+
+/* The threads at the caret as a sheet (P6): the margin's thread without its positioning, its author's colour on its edge. */
+.sheet-thread { margin: 0.25rem 8px 0.6rem; padding: 0.4rem 0.5rem; padding-inline-start: 0.6rem; border: 1px solid #d0d0d0; border-inline-start: 4px solid var(--comment-color, #888); border-radius: 4px; }
+.sheet-thread.done { opacity: 0.8; }
+.sheet-thread-state { margin: 0 0 0.25rem; font-size: 0.8rem; font-weight: 600; color: #555; }
+.thread-sheet .comment-head { min-block-size: 32px; font-size: 0.95rem; }
+.thread-sheet .comment-body.docx-editor { font-size: 0.95rem; }
+.thread-sheet .comment-actions button { min-block-size: 36px; padding-inline: 0.6rem; font-size: 0.9rem; border-color: #d0d0d0; }
+.sheet-comment-field { padding-block-start: 0.25rem; }

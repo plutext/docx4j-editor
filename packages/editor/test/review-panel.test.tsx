@@ -18,7 +18,7 @@ import { EditorDocument, trackedChangesOf, runCommand, type TrackedChangeInfo } 
 import { DocxEditorView } from '../src/view/DocxEditorView.js';
 import ReviewPanel from '../src/app/panels/ReviewPanel.js';
 import { valueWords } from '../src/app/review-words.js';
-import { ReviewStore, reviewEntries, stepEntry, currentEntry, selectEntry, resolveEntry, type ReviewEntry } from '../src/app/review.js';
+import { ReviewStore, reviewEntries, stepEntry, stepTarget, currentEntry, selectEntry, resolveEntry, type ReviewEntry } from '../src/app/review.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -216,6 +216,31 @@ describe('the review panel (ED-005 section 6.5)', () => {
     expect(currentEntry(editor, entries)!.id).toBe(entries[0]!.id);
     expect(stepEntry(editor, session, -1)).toBe('wrapped');
     expect(currentEntry(editor, entries)!.id).toBe(entries[entries.length - 1]!.id);
+    editor.destroy();
+  });
+
+  test("stepTarget, by which the phone's bar greys Previous and Next (ED-013 section 9): none exactly where a step goes round", async () => {
+    const { session, editor } = await open('revisions/revisions-word15.docx');
+    const entries = reviewEntries(editor.state, session);
+    expect(entries.length).toBeGreaterThan(2);
+    const targets = (): [string | undefined, string | undefined] => {
+      const current = currentEntry(editor, entries);
+      const from = editor.state.selection.from;
+      return [stepTarget(entries, current, from, -1)?.id, stepTarget(entries, current, from, 1)?.id];
+    };
+    // Before the first change: nothing before, the first after.
+    editor.caretAt(1);
+    expect(currentEntry(editor, entries)).toBeUndefined();
+    expect(targets()).toEqual([undefined, entries[0]!.id]);
+    // On each change: its neighbours, none before the first or after the last, and a step agrees.
+    for (let i = 0; i < entries.length; i++) {
+      selectEntry(editor, entries[i]!);
+      expect(targets(), `entry ${i}`).toEqual([entries[i - 1]?.id, entries[i + 1]?.id]);
+    }
+    expect(stepEntry(editor, session, 1, entries)).toBe('wrapped');
+    selectEntry(editor, entries[1]!);
+    expect(stepEntry(editor, session, -1, entries)).toBe('moved');
+    expect(currentEntry(editor, entries)!.id).toBe(entries[0]!.id);
     editor.destroy();
   });
 

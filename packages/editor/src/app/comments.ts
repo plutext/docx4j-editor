@@ -7,8 +7,10 @@
 // panel's store: subscribed through React's `useSyncExternalStore`, the editor and the store
 // observed only while something listens (ED-005 section 12.14: StrictMode runs an effect's cleanup
 // once at mount).
+import { useMemo, useSyncExternalStore } from 'react';
 import type { Node as PMNode } from 'prosemirror-model';
-import type { EditorDocument, CommentThread } from '@docx4j/editor-model';
+import type { EditorState } from 'prosemirror-state';
+import { referenceIdOf, type EditorDocument, type CommentThread } from '@docx4j/editor-model';
 import type { DocxEditorView } from '../view/DocxEditorView.js';
 
 /** What a listing shows of a thread: when two listings say the same, the margin keeps the old one. */
@@ -76,4 +78,44 @@ export class CommentsStore {
     this.stop();
     this.listeners.clear();
   }
+}
+
+const NO_THREADS: CommentThread[] = [];
+const noSubscription = (): (() => void) => () => {};
+const noThreads = (): CommentThread[] => NO_THREADS;
+
+/**
+ * The comments as the margin lists them, for a shell that draws no margin (the compact layout, ED-013 section 3.7): its
+ * bar counts the threads at the caret and its sheet draws them. Nothing is listed while `editor` is null.
+ */
+export function useCommentThreads(editor: DocxEditorView | null, session: EditorDocument | null): CommentThread[] {
+  const store = useMemo(() => (editor && session ? new CommentsStore(editor, session) : null), [editor, session]);
+  return useSyncExternalStore(store ? store.subscribe : noSubscription, store ? store.snapshot : noThreads, noThreads);
+}
+
+/** How many nodes a selection's walk visits before it stops: a selection of the whole document asks no more. */
+const SELECTION_WALK = 2000;
+
+/**
+ * The threads at the selection, in the listing's order (ED-013 section 3.7: "Comments (n)" on the bar): every top-level
+ * thread one of whose comments (it or a reply, which marks the same text) marks the text at a caret, either side of it,
+ * or text inside a selection; or whose reference is beside the caret or inside the selection, for a comment with no text.
+ */
+export function threadsAt(state: EditorState, session: EditorDocument, threads: readonly CommentThread[]): CommentThread[] {
+  if (threads.length === 0) return [];
+  const ids = new Set<string>();
+  const note = (node: PMNode | null | undefined): void => {
+    if (!node) return;
+    if (node.isText) { for (const m of node.marks) if (m.type.name === 'comment') ids.add(String(m.attrs['id'])); return; }
+    const ref = referenceIdOf(node, session.ctx.ids);
+    if (ref !== undefined) ids.add(ref);
+  };
+  const { from, to, empty, $head } = state.selection;
+  if (empty) { note($head.nodeBefore); note($head.nodeAfter); }
+  else {
+    let visited = 0;
+    state.doc.nodesBetween(from, to, (node) => { note(node); return ++visited < SELECTION_WALK; });
+  }
+  if (ids.size === 0) return [];
+  return threads.filter((t) => ids.has(t.id) || t.replies.some(function has(r): boolean { return ids.has(r.id) || r.replies.some(has); }));
 }

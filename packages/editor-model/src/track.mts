@@ -160,6 +160,9 @@ const PARAGRAPH_PROPERTIES = ['pStyle', 'jc', 'ind', 'spacing', 'bidi', 'numPr',
  */
 export function trackTransaction(tr: Transaction, state: EditorState, tracking: Tracking, ctx: ProjectionContext): Transaction {
   const info: RevisionInfo = { author: tracking.author, date: tracking.date, move: null };
+  // Where the transaction itself put the caret, and its document, before the tracker appends anything.
+  const given = tr.selection;
+  const givenDoc = tr.doc;
   const changes = ChangeSet.create(state.doc, undefined, encoderFor(tr)).addSteps(tr.doc, tr.mapping.maps, null).changes;
   const inserted = changes.filter((c) => c.toB > c.fromB).map((c) => [c.fromB, c.toB] as const);
   const insideInserted = (from: number, to: number): boolean => inserted.some(([a, b]) => a <= from && to <= b);
@@ -176,8 +179,12 @@ export function trackTransaction(tr: Transaction, state: EditorState, tracking: 
       const size = restoreDeleted(tr, state, c.fromA, c.toA, c.fromB);
       markDeleted(tr, c.fromB, c.fromB + size, info, deletedMarks);
       // Backspace (what it deleted lay before the caret) leaves the caret before it, as Word does;
-      // Delete, and a selection deleted, leave it after.
-      if (changes.length === 1 && c.toB === c.fromB && before.empty && before.head >= c.toA) caret = c.fromB;
+      // Delete, and a selection deleted, leave it after. A Backspace leaves the transaction's own caret
+      // where the deletion was, with no text between (a join's caret is past a paragraph's start): a
+      // keyboard's replacement that nets out to a deletion ("tesxt" picked as "text") puts it after the
+      // rest of the word, and it stays there (ED-013 section 9, S5 defect 1).
+      if (changes.length === 1 && c.toB === c.fromB && before.empty && before.head >= c.toA &&
+        given.empty && given.head >= c.fromB && givenDoc.textBetween(c.fromB, given.head) === '') caret = c.fromB;
     }
   }
   afterItsDeletion(tr, made, info);
@@ -576,13 +583,19 @@ function shedDeletion(tr: Transaction, from: number, to: number): void {
  * and every step map since. ProseMirror replaces the whole composed text node as the composition
  * goes, so the maps overstate what changed; the changes here are the documents compared
  * character by character (the changeset's own tokens), so only what the composition added is
- * inserted and only what it replaced is put back, deleted. With tracking off, a deletion the
- * composed text inherited is shed.
+ * inserted and only what it replaced is put back, deleted. With tracking off, the composed text is
+ * plain as typed text is (`withoutInheritedRevisions`, core-ts check 21): it sheds an insertion or a
+ * deletion it inherited, and the revision splits around it (ED-013 section 9, S5 defect 3).
  */
 export function markComposed(tr: Transaction, start: PMNode, maps: readonly StepMap[], tracking: Tracking | undefined): Transaction {
   const changes = ChangeSet.create(start).addSteps(tr.doc, maps, null).changes;
   if (!tracking) {
-    for (const c of changes) if (c.toB > c.fromB) shedDeletion(tr, c.fromB, c.toB);
+    const insertion: MarkType = tr.doc.type.schema.marks['insertion']!;
+    for (const c of changes) {
+      if (c.toB <= c.fromB) continue;
+      for (const [a, b, node] of partsOf(tr.doc, c.fromB, c.toB).text) if (insertion.isInSet(node.marks)) tr.removeMark(a, b, insertion);
+      shedDeletion(tr, c.fromB, c.toB);
+    }
     return tr;
   }
   const info: RevisionInfo = { author: tracking.author, date: tracking.date, move: null };

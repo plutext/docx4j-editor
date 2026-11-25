@@ -21,6 +21,8 @@ import { characterStyleRPr } from './css.js';
 import { PARTS_CHANGED } from './plugins/labels.js';
 
 let spellcheck = true;
+/** Whether the keyboard may offer suggestions; off on an iPhone in landscape (ED-013 section 9). */
+let suggestions = true;
 
 const proofingKey = new PluginKey<string | undefined>('docx4j-proofing');
 
@@ -33,6 +35,19 @@ export function spellcheckEnabled(): boolean {
 export function setSpellcheck(on: boolean): void {
   if (on === spellcheck) return;
   spellcheck = on;
+  for (const s of surfaces.values()) s.view.dispatch(s.state.tr.setMeta(proofingKey, true));
+}
+
+/**
+ * Whether the on-screen keyboard may offer its suggestions strip. Off, every surface says `autocorrect="off"` and
+ * `spellcheck="false"`, which is what iOS reads to leave the strip out; the option's spelling comes back with it.
+ */
+export function setKeyboardSuggestions(on: boolean): void {
+  if (on === suggestions) return;
+  suggestions = on;
+  // iOS reads a field's keyboard settings as the keyboard opens, so a phone turned with the keyboard up keeps the
+  // keyboard it had until the next tap into the text. Letting the focus go and taking it back to force it confused
+  // Safari's viewport on an iPhone (ED-013 section 9).
   for (const s of surfaces.values()) s.view.dispatch(s.state.tr.setMeta(proofingKey, true));
 }
 
@@ -147,6 +162,7 @@ export function proofingPlugin(session: EditorDocument): Plugin<string | undefin
     props: {
       attributes: (state: EditorState): Record<string, string> => {
         const lang = proofingKey.getState(state);
+        if (!suggestions) return { spellcheck: 'false', autocorrect: 'off', ...(lang ? { lang } : {}) };
         return { spellcheck: spellcheck ? 'true' : 'false', ...(lang ? { lang } : {}) };
       },
     },

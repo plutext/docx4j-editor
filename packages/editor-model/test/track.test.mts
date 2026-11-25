@@ -9,9 +9,9 @@
 // written to the settings part, and a tree run tracked by the engine as the same author.
 import { describe, test, expect } from 'vitest';
 import { WordprocessingMLPackage, ZipPartStore } from '@docx4j/core-ts';
-import type { EditorState, Transaction } from 'prosemirror-state';
+import { TextSelection, type EditorState, type Transaction } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
-import { EditorDocument, runCommand, runCommandAsync, stateFor, recordTransaction, formattingKey, type ParagraphAttrs, type Recorded } from '../src/index.mjs';
+import { EditorDocument, runCommand, runCommandAsync, stateFor, recordTransaction, markComposed, formattingKey, type ParagraphAttrs, type Recorded } from '../src/index.mjs';
 import { fixture, dated } from './helpers.mjs';
 import { room } from './room-harness.mjs';
 
@@ -96,6 +96,22 @@ describe('text (ED-005 section 5.4)', () => {
     const forward = input(session, (s) => s.tr.delete(x, x + 1), { from: x });
     expect(pieces(paragraphWith(session.doc, 'Some').node)).toEqual(['Some ', 't|del:Author C', 'ex', 't|del:Author C', '.']);
     expect(forward.state.selection.from).toBe(x + 1);
+  });
+
+  test("a keyboard's replacement that nets out to a deletion leaves the caret where the keyboard put it (ED-013 section 9, S5 defect 1)", async () => {
+    // Samsung Keyboard's suggestion "text" picked for "tesxt", the s this author's: the browser's change, read back,
+    // is the s deleted, with the caret after the word and its space. The s goes for real and the caret stays.
+    const session = await tracking();
+    runCommand(session, 'insertText', { text: 'tesxt ' }, { from: at(session.doc, 'text.') });
+    const s = at(session.doc, 'sxt');
+    const own = input(session, (st) => { const tr = st.tr.delete(s, s + 1); return tr.setSelection(TextSelection.create(tr.doc, s + 3)); }, { from: s + 3 });
+    expect(pieces(paragraphWith(session.doc, 'Some').node)).toEqual(['Some ', 'text |ins:Author C', 'text.']);
+    expect(own.state.selection.from).toBe(s + 3);
+    // The file's "text" picked as "tet": the x is put back, deleted, and the caret is after the word, beyond it.
+    const x = at(session.doc, 'text.');
+    const plain = input(session, (st) => { const tr = st.tr.delete(x + 2, x + 3); return tr.setSelection(TextSelection.create(tr.doc, x + 3)); }, { from: x + 4 });
+    expect(pieces(paragraphWith(session.doc, 'Some').node)).toEqual(['Some ', 'text |ins:Author C', 'te', 'x|del:Author C', 't.']);
+    expect(plain.state.selection.from).toBe(x + 4);
   });
 
   test("deleting this author's own insertion removes it; another author's is marked deleted as well", async () => {
@@ -581,6 +597,19 @@ describe('tracking off, the mode, and a tree run (ED-005 section 5.4)', () => {
     expect(await typed('Author B', 'Y', (doc) => at(doc, 'lazy', 'The quick brown'))).toMatch(new RegExp(ins('Author A', 'very ') + plain('Y')));
     // 21c: inside A's deleted "old", A's w:del split around a plain run.
     expect(await typed('Author B', 'Z', (doc) => at(doc, 'old', 'The quick brown') + 2)).toMatch(new RegExp(del('Author A', 'ol') + plain('Z') + del('Author A', 'd ')));
+  });
+
+  test("with tracking off, a composition inside another author's insertion is plain and splits it, as typed text is (ED-013 section 9, S5 defect 3)", async () => {
+    const session = await tracking('revisions/revisions-word15.docx');
+    session.trackingMode = 'Off';
+    session.trackingAuthor = 'Author B';
+    const start = session.doc;
+    const state = stateFor(session);
+    // What the view applies as the composition goes: the text in the insertion's text node, taking its marks.
+    const composing = state.tr.insertText('XY', at(start, 'very', 'The quick brown') + 2);
+    const composed = state.apply(composing);
+    session.replace(composed.apply(markComposed(composed.tr, start, composing.mapping.maps, session.tracking())).doc);
+    expect(pieces(paragraphWith(session.doc, 'The quick brown').node).join(' / ')).toContain('ve|ins:Author A / XY / ry |ins:Author A');
   });
 
   test("typing inside another author's revision splits it around the typist's own w:ins, as Word writes it with tracking on (core-ts check 21, a to c)", async () => {

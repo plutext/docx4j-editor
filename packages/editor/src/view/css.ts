@@ -260,7 +260,8 @@ function documentRules(session: EditorDocument, doc: PMNode, extra: readonly PMN
 function pageRules(session: EditorDocument, doc: PMNode, rules: string[]): void {
   const secs = sections(session, doc);
   const first = pageGeometry(secs[0]);
-  rules.push(`.docx-editor { inline-size: ${first.width}pt; padding-inline: ${first.left}pt ${first.right}pt; padding-block: ${first.top}pt ${first.bottom}pt; }`);
+  // `--text-width`: the first section's text width, which the compact layout draws the text at where it fits (ED-013 section 3.5).
+  rules.push(`.docx-editor { inline-size: ${first.width}pt; padding-inline: ${first.left}pt ${first.right}pt; padding-block: ${first.top}pt ${first.bottom}pt; --text-width: ${first.width - first.left - first.right}pt; }`);
   // A page boundary spans the page, the document's start and end too (their header and footer had sat inside the
   // text column, inset by the margins a second time: ED-005 section 12.98); the header and footer inside sit within the margins.
   rules.push(`.docx-editor .page-boundary, .docx-editor .page-start, .docx-editor .page-end { margin-inline: -${first.left}pt -${first.right}pt; }`);

@@ -17,6 +17,7 @@ import { refreshXhtmlControls } from './xhtmlbind.js';
 import { refreshPictureControls } from './picturebind.js';
 import { ySyncPluginKey, type ProsemirrorBinding } from 'y-prosemirror';
 import { presencePlugin } from './presence.js';
+import { scrollMargin } from './scrollmargin.js';
 import { markSelectionPlugin } from './plugins/markselection.js';
 import { optionalBreaksPlugin } from './plugins/optionalbreaks.js';
 import { verticalMotionPlugin } from './plugins/verticalmotion.js';
@@ -114,6 +115,8 @@ export abstract class SurfaceBase implements EditorSurface {
     // leaving a room never change the plugin list (presence.ts says why that matters).
     const withPresence = state.reconfigure({ plugins: [...state.plugins, presencePlugin(this.session), markSelectionPlugin(), optionalBreaksPlugin(), verticalMotionPlugin()] });
     this.view = new EditorView(this.container, {
+      // Clear of the compact layout's sticky bars when a caret is scrolled into view (ED-013 section 3.10).
+      scrollMargin,
       ...props,
       state: withPresence,
       dispatchTransaction: (incoming) => {

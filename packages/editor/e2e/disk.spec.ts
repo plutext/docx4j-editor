@@ -4,7 +4,7 @@
 // handle, so the suite stubs the File System Access picker with a handle whose `getFile()` answers from a
 // file the test rewrites (`window.__disk`), and the watcher's focus check stands in for its polling.
 import { test, expect, type Page } from '@playwright/test';
-import { strToU8, zipSync } from 'fflate';
+import { strToU8, unzipSync, zipSync } from 'fflate';
 import { fixture, caretInBlock } from './helpers.js';
 
 interface DiskFile { name: string; bytes: Uint8Array; lastModified: number }
@@ -22,9 +22,12 @@ declare global {
 
 const DOCUMENT = '.ProseMirror[aria-label="Document"]';
 
-/** The picker stubbed before the page loads: one handle over a mutable file. */
-async function stubPicker(page: Page, name: string, bytes: Uint8Array): Promise<void> {
-  await page.addInitScript(({ name, b64 }) => {
+/**
+ * The picker stubbed before the page loads: one handle over a mutable file. `keepWrites`: a write through the handle becomes
+ * the file's bytes, its time unchanged (otherwise a write leaves the file as it was).
+ */
+async function stubPicker(page: Page, name: string, bytes: Uint8Array, options: { keepWrites?: boolean } = {}): Promise<void> {
+  await page.addInitScript(({ name, b64, keepWrites }) => {
     const disk = { name, bytes: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), lastModified: 1_000_000 };
     const saved = { name: name.replace(/\.md$/, '.docx'), bytes: new Uint8Array(0), lastModified: 5_000_000 };
     window.__disk = disk;
@@ -36,11 +39,22 @@ async function stubPicker(page: Page, name: string, bytes: Uint8Array): Promise<
       isSameEntry: async () => true,
       queryPermission: async () => 'granted',
       requestPermission: async () => 'granted',
-      createWritable: async () => ({ write: async () => { window.__writes.push(file.name); }, close: async () => undefined }),
+      createWritable: async () => ({
+        write: async (data: BlobPart) => {
+          window.__writes.push(file.name);
+          if (keepWrites) file.bytes = new Uint8Array(await new Blob([data]).arrayBuffer());
+        },
+        close: async () => undefined,
+      }),
     });
     (window as unknown as { showOpenFilePicker: unknown }).showOpenFilePicker = async () => [handleOf(disk)];
     (window as unknown as { showSaveFilePicker: unknown }).showSaveFilePicker = async (options: unknown) => { window.__saveOptions = options; return handleOf(saved); };
-  }, { name, b64: Buffer.from(bytes).toString('base64') });
+  }, { name, b64: Buffer.from(bytes).toString('base64'), keepWrites: options.keepWrites ?? false });
+}
+
+/** A package's parts zipped again uncompressed: other bytes, the same document. */
+function rezipped(bytes: Uint8Array): Uint8Array {
+  return zipSync(unzipSync(bytes), { level: 0 });
 }
 
 /** Open through the stubbed picker and wait for the editor. */
@@ -89,10 +103,41 @@ test('a file written on disk is offered for reload; Keep closes the offer until 
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await page.waitForTimeout(200);
   await expect(offer).toBeHidden();
+  // A time that moved over the same bytes is no change (ED-013 section 9): nothing offered.
   await writeOnDisk(page);
+  await page.waitForTimeout(200);
+  await expect(offer).toBeHidden();
+  // The same document in other bytes is a write: the text is the same on both sides.
+  await writeOnDisk(page, rezipped(await fixture('tables.docx')));
   await expect(offer).toBeVisible();
-  // The same bytes written again: the text is the same on both sides.
   await expect(page.getByTestId('disk-counts')).toHaveText('The text of every paragraph is the same; the change is in formatting, properties or another part.');
+});
+
+test("a file's time moved over the editor's own save is no change: nothing offered, and the next Save in place goes ahead (ED-013 section 9)", async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('docx4j-editor.saveInPlace', 'true'); } catch { /* ignore */ } });
+  await stubPicker(page, 'hello.docx', await fixture('HelloWordOnline.docx'), { keepWrites: true });
+  await openPicked(page);
+  const offer = page.getByTestId('disk-offer');
+  await caretInBlock(page, 0);
+  await page.keyboard.type('x');
+  await page.keyboard.press('Control+s');
+  await expect(page.getByTestId('status')).toHaveText('Saved with changes (in place)');
+  // Android's provider, measured on the phone: the file's time moves after the editor's write, its bytes the editor's own.
+  await writeOnDisk(page);
+  await page.waitForTimeout(200);
+  await expect(offer).toBeHidden();
+  await caretInBlock(page, 0);
+  await page.keyboard.type('y');
+  await page.keyboard.press('Control+s');
+  await expect(page.getByTestId('status')).toHaveText('Saved with changes (in place)');
+  expect(await page.evaluate(() => window.__writes)).toEqual(['hello.docx', 'hello.docx']);
+  // Another program's write is still one.
+  await writeOnDisk(page, await fixture('tables.docx'));
+  await expect(offer).toBeVisible();
+  await caretInBlock(page, 0);
+  await page.keyboard.type('z');
+  await page.keyboard.press('Control+s');
+  await expect(page.getByTestId('status')).toHaveText('Not saved: the file changed on disk since it was opened. Use Save As.');
 });
 
 test('with unsaved changes the offer says so and has no Reload; the disk version opens in a new tab, the edited one untouched', async ({ page }) => {
@@ -275,7 +320,7 @@ test('with unsaved changes the disk version can replace them, after a confirmati
   expect(await sessionRecord(page, edited)).toBeUndefined();
   expect(await sessionRecord(page)).toMatchObject({ dirty: false });
   // The watcher follows the new time, and a later write offers a plain Reload.
-  await writeOnDisk(page);
+  await writeOnDisk(page, await fixture('HelloWordOnline.docx'));
   await expect(page.getByTestId('disk-reload')).toBeVisible();
   await expect(page.getByTestId('disk-discard')).toHaveCount(0);
 });
@@ -616,7 +661,8 @@ test('a row selected comes back as a caret in its first cell, where a selection\
   const box = (await row.boundingBox())!;
   await page.mouse.click(box.x - 12, box.y + box.height / 2);
   await expect.poll(() => page.evaluate(() => (window as unknown as { docx4jEditor: { state: { selection: { constructor: { name: string } } } } }).docx4jEditor.state.selection.constructor.name)).toContain('CellSelection');
-  await writeOnDisk(page, await fixture('tables.docx'));
+  // The same document in other bytes: a time moved over the same bytes is no change (ED-013 section 9).
+  await writeOnDisk(page, rezipped(await fixture('tables.docx')));
   await page.getByTestId('disk-reload').click();
   await expect(page.getByTestId('status')).toContainText('Reloaded tables.docx from disk');
   await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
@@ -651,7 +697,8 @@ test('in the new tab a paragraph that is only in the edited version is said to b
   await caretInClause(page, clause(120), clause(120).length);
   await page.keyboard.press('Enter');
   await page.keyboard.type('A paragraph written here and saved nowhere yet.');
-  await writeOnDisk(page, docx(PAPER));
+  // The opened text in other bytes (two `docx(PAPER)` within fflate's two-second clock are the same bytes, no change).
+  await writeOnDisk(page, rezipped(docx(PAPER)));
   await expect(page.getByTestId('disk-offer')).toContainText('unsaved changes');
   const [tab] = await Promise.all([page.context().waitForEvent('page'), page.getByTestId('disk-open-tab').click()]);
   await tab.getByTestId('editor').locator(DOCUMENT).waitFor();

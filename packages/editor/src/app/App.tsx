@@ -8,7 +8,7 @@ import * as Y from 'yjs';
 import { EditorDocument, SelfCheckError, documentStyles, documentFonts, preservedCount, APPLICATION_NAME, IMPORT_ORIGIN, ROOM_ORIGIN, AGENTS_ORIGIN, staleBoundControls, applyBoundRefresh, stateFor, compareWithBytes, type StyleEntry, type StaleBoundControls, type TextComparison, type SaveFormat } from '@docx4j/editor-model';
 import { refreshXhtmlControls } from '../view/xhtmlbind.js';
 import { refreshBoundAtCaret } from '../view/boundrefresh.js';
-import { setSpellcheck } from '../view/proofing.js';
+import { setSpellcheck, setKeyboardSuggestions } from '../view/proofing.js';
 import { refreshPictureControls } from '../view/picturebind.js';
 import { refreshFragmentControls } from '../view/fragmentbind.js';
 import type { IndexeddbPersistence } from 'y-indexeddb';
@@ -18,9 +18,14 @@ import { surfaces, type EditorSurface } from '../view/surface.js';
 import { Toolbar } from './Toolbar.js';
 import { Palette } from './Palette.js';
 import { SelfCheckDialog } from './SelfCheckDialog.js';
-import { PageSizeDialog, TrackingNameDialog, DiscardReloadDialog, DiscardCloseDialog } from './Dialogs.js';
+import { PageSizeDialog, TrackingNameDialog, DiscardReloadDialog, DiscardCloseDialog, SendReadyDialog } from './Dialogs.js';
 import { editCauseOf, deepStack, followInput, logEditCause, type EditCause } from './editcause.js';
 import { TrackingSwitch, TrackingIndicator } from './TrackingSwitch.js';
+import { CompactShell, KeyboardBar } from './CompactShell.js';
+import { NewCommentSheet, ReviewSheet, ThreadSheet } from './CompactSheets.js';
+import { useCommentThreads } from './comments.js';
+import { setScrollMargin } from '../view/scrollmargin.js';
+import { loadLayout, saveLayout, useCompact, useKeyboard, useSurfaceFocused, useTappedIntoText, useViewportGaps, useCaretInView, isAppleTouch, isLayoutChoice, type LayoutChoice, type CaretBox } from './compact.js';
 import { ZoomControl } from './ZoomControl.js';
 import { loadZoom, saveZoom, stepZoom, clampZoom } from './zoom.js';
 import { PAGE_SIZES, loadPageSize, savePageSize, isPageSize, loadMargins, saveMargins, isMarginPreset, newDocument, templateKind, documentFromTemplate, documentFromMarkdown, type PageSizePaper, type MarginPreset } from './newdoc.js';
@@ -29,8 +34,8 @@ import { perspectives, perspectiveNamed, loadPerspective, savePerspective, loadP
 import './presets.js';
 import { DeveloperPanel, Splitter } from './panels/DeveloperPanel.js';
 import { FootnotesPanel } from './panels/FootnotesPanel.js';
-import { CommentsMargin } from './panels/CommentsMargin.js';
-import { reasonOf, hasFileSystemAccess, pickFile, fromFile, handleOfDrop, readHandle, saveAsDownload, saveAs, saveInPlace, download, diagnosisName, isMarkdownName, formatOfName, OPEN_ACCEPT, type OpenedFile, type SourceFile } from './files.js';
+import { CommentsMargin, commentColours } from './panels/CommentsMargin.js';
+import { reasonOf, hasFileSystemAccess, pickFile, fromFile, handleOfDrop, readHandle, saveAsDownload, saveAs, saveInPlace, changedSince, download, canShareFiles, sendCopy, sendFile, type SendOutcome, diagnosisName, isMarkdownName, formatOfName, OPEN_ACCEPT, type OpenedFile, type SourceFile } from './files.js';
 import type { EditorView } from 'prosemirror-view';
 import { formatAsMarkdown } from '../view/markdown.js';
 import { printDocument, prepareNotes, isPrintKey } from './print.js';
@@ -50,7 +55,7 @@ import { browserMacros, putBrowserMacro, deleteBrowserMacro, documentMacros, put
 import { SaveMacroDialog, MacroSourceDialog } from './MacroDialogs.js';
 import type { Macro, LockRefusal } from '@docx4j/editor-model';
 import type { PaletteMacro, PaletteAction } from './Palette.js';
-import { chooseMarkupView, listedChanges, stepChange } from './review.js';
+import { chooseMarkupView, listedChanges, snippetOf, stepChange } from './review.js';
 import { askOption, setAskOption, OPTION_ASK_KEY, OPTION_ASK_BASE_URL } from './ask.js';
 import { t, tNodes, useT, useLanguage, directionOf, availableLanguages, languageOption, setLanguage, nativeName, isDraft, matchLanguage, SOURCE_LANGUAGE } from './i18n.js';
 import { diagnosticSummary, perspectiveLabel, tabLabel, untrackedStatus, lockRefusedStatus } from './labels.js';
@@ -67,6 +72,11 @@ interface Open {
   fonts: string[];
   handle?: FileSystemFileHandle;
   lastModified: number;
+  /**
+   * The handle's file as the editor last read or wrote it: a time that moved over these bytes is no change on disk
+   * (`changedSince`; ED-013 section 9). `bytes` stays the file as opened, the recovery record's base.
+   */
+  disk?: Uint8Array;
   persistence: IndexeddbPersistence;
   /** Lets go of the session: until then the other tabs read it as open here, and offer nothing (ED-011 section 3.6). */
   release: () => void;
@@ -183,6 +193,10 @@ export function App() {
   const [palette, setPalette] = useState(false);
   const [details, setDetails] = useState(false);
   const [selfCheck, setSelfCheck] = useState<{ error: SelfCheckError; diagnosis: Uint8Array; format: SaveFormat } | null>(null);
+  /** Send a copy's file, made but waiting on a second tap (ED-013 section 3.8). */
+  const [sendReady, setSendReady] = useState<File | null>(null);
+  /** Whether the browser can hand a Word document to the share sheet: asked once, and false from a refusal on. */
+  const [canSend, setCanSend] = useState(canShareFiles);
   const [recovery, setRecovery] = useState<SessionRecord | null>(null);
   const [writeApp, setWriteApp] = useState(() => option(OPTION_APP, true));
   const [inPlace, setInPlace] = useState(() => option(OPTION_SAVE_IN_PLACE, false));
@@ -242,6 +256,83 @@ export function App() {
   const [, setProblemsSeen] = useState(0);
   /** Your name in a shared room (ED-004 section 5); empty: a guest. */
   const [userName, setUserName] = useState<string>(() => nameOption());
+  /** The layout (ED-013 section 3.1): Automatic follows the device (a touch-only one with a short side of 600 px or less is a phone), Compact or Full overrides it; kept per browser. */
+  const [layoutChoice, setLayoutChoice] = useState<LayoutChoice>(() => loadLayout());
+  const compact = useCompact(layoutChoice);
+  /** Where the keyboard covers the page (iOS Safari), the bars are moved into the visible part. */
+  useViewportGaps(compact);
+  /** The bar above the keyboard (ED-013 section 3.4): while the keyboard is open and an editing surface has the focus. */
+  const surfaceFocused = useSurfaceFocused(compact);
+  /**
+   * The on-screen keyboard (ED-013 section 3.3), followed in the compact layout only. On an iPhone a surface focused by a
+   * tap means the keyboard is up: turned to landscape with it up, Safari can go on reporting the whole screen as visible
+   * (ED-013 section 9), and the viewport's height alone said it was closed.
+   */
+  const viewportKeyboard = useKeyboard(compact);
+  const tappedIntoText = useTappedIntoText(compact);
+  const keyboard = tappedIntoText && !viewportKeyboard.open && isAppleTouch(navigator.userAgent, navigator.maxTouchPoints ?? 0)
+    ? { ...viewportKeyboard, open: true }
+    : viewportKeyboard;
+  /** On an iPhone in landscape Safari leaves about 48 px above the keyboard, under its own bar (whose tick is Done): no bar of the editor's there. */
+  const appleLandscape = keyboard.landscape && isAppleTouch(navigator.userAgent, navigator.maxTouchPoints ?? 0);
+  const typing = compact && keyboard.open && surfaceFocused && editor !== null && open !== undefined;
+  const keyboardBar = typing && !appleLandscape;
+  /** The compact layout's new comment (ED-013 section 3.7): the sheet open, with the selection's text quoted. */
+  const [commentSheet, setCommentSheet] = useState<string | null>(null);
+  /** The compact layout's changes as a sheet (ED-013 section 3.7, P5): opened by choosing Review. */
+  const [reviewSheet, setReviewSheet] = useState(false);
+  /** The compact layout's thread sheet (P6): the ids of the threads at the caret when Comments (n) was tapped. */
+  const [threadSheet, setThreadSheet] = useState<string[] | null>(null);
+  /** The comments as the margin lists them, for the compact layout, which draws no margin: the bar's count and the thread sheet. */
+  const compactThreads = useCommentThreads(compact && editor && open ? editor : null, compact && open ? open.session : null);
+  // Another document, or none: no sheet stays open over it.
+  useEffect(() => { setReviewSheet(false); setThreadSheet(null); setCommentSheet(null); }, [open?.session]);
+  /** The compact layout's file input, for Open where the browser has no pickers. */
+  const openInputRef = useRef<HTMLInputElement>(null);
+  // A caret scrolled into view keeps clear of the compact layout's sticky bars (ED-013 section 3.10): the top bar's
+  // height and, at the bottom, the status bar's or, with the keyboard open, the bar above it, measured as the layout,
+  // the keyboard and the focus change them; ProseMirror's 5 px otherwise.
+  useEffect(() => {
+    if (!compact) { setScrollMargin(5, 5); return; }
+    const visibleHeight = (selector: string): number => {
+      const el = document.querySelector(selector);
+      return el && getComputedStyle(el).display !== 'none' ? el.getBoundingClientRect().height : 0;
+    };
+    setScrollMargin(visibleHeight('.compact-bar') + 8, visibleHeight('.app > .status-bar') + visibleHeight('.app > .keyboard-bar') + 8);
+    // The caret back in view as the bar comes, or as the phone turns with it shown: the bar is drawn over the last lines
+    // above the keyboard, and a rotation keeps the scroll offset, not the caret (ED-013 section 9).
+    if (keyboardBar) {
+      const surface = activeRef.current ?? editorRef.current;
+      if (surface?.hasFocus()) surface.view.dispatch(surface.state.tr.scrollIntoView());
+    }
+  }, [compact, keyboard.open, keyboard.landscape, open, keyboardBar]);
+  /** The caret's box in the window, from the surface that has the focus; null where none has. */
+  const caretBox = useCallback((): CaretBox | null => {
+    const surface = activeRef.current ?? editorRef.current;
+    if (!surface?.hasFocus()) return null;
+    const { doc, selection } = surface.state;
+    try {
+      const { top, bottom } = surface.view.coordsAtPos(selection.head);
+      return { top, bottom, stamp: [surface, doc, selection.anchor, selection.head] };
+    } catch { return null; }
+  }, []);
+  /** The caret kept between the bars while typing (ED-013 section 9, the iPhone): in landscape the band is a few lines. */
+  useCaretInView(typing, caretBox);
+  // A turn of an iPhone with the keyboard up closes it (ED-013 section 9; Jason's choice): after one Safari misreports the
+  // visible part (59 or 63 px, or the whole screen) and draws its own form bar wrongly, until the next tap into the text,
+  // which also sets the keyboard up for the suggestions the new orientation has. The selection is kept.
+  const turnedFrom = useRef(keyboard.landscape);
+  useEffect(() => {
+    if (turnedFrom.current === keyboard.landscape) return;
+    turnedFrom.current = keyboard.landscape;
+    if (!compact || !isAppleTouch(navigator.userAgent, navigator.maxTouchPoints ?? 0)) return;
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused.closest('.ProseMirror[contenteditable="true"]')) focused.blur();
+  }, [compact, keyboard.landscape]);
+  /** No suggestions strip on an iPhone in landscape (ED-013 section 9), where it takes a third of what the keyboard leaves. */
+  useEffect(() => {
+    setKeyboardSuggestions(!(compact && appleLandscape));
+  }, [compact, appleLandscape]);
   /** The find bar (ED-005 section 3.4): open, with its replacement row, and the last Ctrl+F or Ctrl+H with the selection's text. */
   const [findOpen, setFindOpen] = useState(false);
   const [findReplace, setFindReplace] = useState(false);
@@ -266,6 +357,8 @@ export function App() {
   useEffect(() => { const follower = followInput(); inputRef.current = follower; return () => { follower.stop(); if (inputRef.current === follower) inputRef.current = null; }; }, []);
   /** The modification time Save in place gave the file: the watcher's report of it is the editor's own write, not a change. */
   const ownWriteRef = useRef<number | null>(null);
+  /** A save writing through a handle: the watcher reports nothing meanwhile, since the file's new time is the save's own. */
+  const savingRef = useRef(false);
   /** True while the table fit of a Markdown open writes: the import's work, not an edit, so Reload stays on offer (ED-011 section 3.8). */
   const importFitRef = useRef(false);
 
@@ -320,7 +413,7 @@ export function App() {
     // Recovery rejoins the room; offline, the local copy opens and the provider syncs when it can.
     // A sharer's recovery may remake the room (the idle rule may have deleted it); a joiner's never makes one.
     const room = recover?.room ? connectRoom(store, recover.room, !recover.joined) : undefined;
-    const next: Open = { id, name: file.name, session, styles, fonts, lastModified: file.lastModified, persistence, release, bytes: file.bytes, ...(file.handle ? { handle: file.handle } : {}), ...(file.source ? { source: file.source } : {}), ...(room ? { room } : {}), ...(recover?.joined ? { joined: true } : {}), ...(onDisk ? { onDisk: true as const } : {}) };
+    const next: Open = { id, name: file.name, session, styles, fonts, lastModified: file.lastModified, persistence, release, bytes: file.bytes, ...(file.handle ? { handle: file.handle, disk: file.bytes } : {}), ...(file.source ? { source: file.source } : {}), ...(room ? { room } : {}), ...(recover?.joined ? { joined: true } : {}), ...(onDisk ? { onDisk: true as const } : {}) };
     setCurrentSessionId(id);
     firstEditRef.current = recover?.dirty ? recover.firstEdit ?? null : null;
     await putSession(recordOf(next, recover?.dirty ?? false, firstEditRef.current));
@@ -560,7 +653,25 @@ export function App() {
     const handle = open && watchedHandle(open);
     if (!open || !handle || open.room) return;
     const { session } = open;
-    const watcher = watchFile(handle, open.source?.lastModified ?? open.lastModified, (at) => { if (at !== ownWriteRef.current) setDiskChange({ session, lastModified: at }); });
+    const watcher = watchFile(handle, open.source?.lastModified ?? open.lastModified, (at) => {
+      if (at === ownWriteRef.current || savingRef.current) return;
+      void (async () => {
+        // A time that moved over the bytes the editor last read or wrote is no change (ED-013 section 9): the time is
+        // adopted and nothing is offered. A Markdown source is not compared: its document is a conversion.
+        const cur = openRef.current;
+        if (cur?.session === session && cur.handle === handle && !cur.source && cur.disk) {
+          try {
+            const file = await handle.getFile();
+            if (!(await changedSince(file, cur.lastModified, cur.disk))) {
+              ownWriteRef.current = file.lastModified;
+              setOpen((o) => (o?.session === session ? { ...o, lastModified: file.lastModified } : o));
+              return;
+            }
+          } catch { /* unread: offered as a change, as before */ }
+        }
+        setDiskChange({ session, lastModified: at });
+      })();
+    });
     return () => watcher.stop();
   }, [open]);
 
@@ -872,20 +983,32 @@ export function App() {
     setStatus(open.session.trackingMode === 'TrackAll' ? t('status.tracking.on', { author: open.session.trackingAuthor ?? '' }) : t('status.tracking.off'));
   }, [editor, open, userName]);
   useEffect(() => { toggleRef.current = () => void setTracking('toggle'); }, [setTracking]);
-  /** A comment on the body's selection, or the word at its caret, asking for a name first when none is set (ED-005 section 7.5). */
-  const newComment = useCallback(async (name: string = userName): Promise<void> => {
+  /**
+   * A comment on the body's selection, or the word at its caret, asking for a name first when none is set (ED-005 section 7.5);
+   * with `text`, made with it (the compact layout's sheet, ED-013 section 3.7, which asks the name itself), else empty for the
+   * margin to type into.
+   */
+  const newComment = useCallback(async (name: string = userName, text?: string): Promise<void> => {
     if (!editor || !open) return;
     if (name.trim() === '') { setAskCommentName(true); return; }
     open.session.trackingAuthor = localUser(name).name;
-    if (!(await editor.runAsync('range.insertComment', {}))) setStatus(tr('comments.notDone'));
+    if (!(await editor.runAsync('range.insertComment', text !== undefined ? { text } : {}))) setStatus(tr('comments.notDone'));
   }, [editor, open, userName, tr]);
   useEffect(() => { commentRef.current = () => void newComment(); }, [newComment]);
+  /** A reply from the compact layout's thread sheet (ED-013 section 3.7), under the name the sheet asked when none was set. */
+  const replyComment = useCallback(async (id: string, text: string, name?: string): Promise<void> => {
+    if (!editor || !open) return;
+    if (name !== undefined) { setUserName(name); setNameOption(name); }
+    open.session.trackingAuthor = localUser(name ?? userName).name;
+    if (!(await editor.runAsync('comment.reply', { id, text }))) setStatus(tr('comments.notDone'));
+  }, [editor, open, userName, tr]);
   // The three views of the tracked changes, in the palette beside the macros: a view is not an edit, so not a registry command (ED-005 section 6.4).
   const paletteActions: PaletteAction[] = editor ? [
     ...(['all', 'accepted', 'original'] as const).map((v) => ({ id: `view:${v}`, label: t('palette.view', { name: t(`review.view.${v}`) }), run: () => chooseMarkupView(editor, v, setStatus) })),
     { id: 'print', label: t('palette.print'), run: () => void doPrint() },
     // Save As's picker offers Flat OPC too; without a picker this is the one way to it, as a download.
     { id: 'save-flat-opc', label: t('palette.saveFlatOpc'), run: () => void doSaveAs({ flatOpc: true }) },
+    ...(canSend && open ? [{ id: 'send-copy', label: t('app.sendCopy'), run: () => void doSendCopy() }] : []),
     { id: 'zoom-in', label: t('zoom.in'), run: () => setZoom(stepZoom(zoom, 1)) },
     { id: 'zoom-out', label: t('zoom.out'), run: () => setZoom(stepZoom(zoom, -1)) },
     { id: 'zoom-reset', label: t('zoom.reset'), run: () => setZoom(1) },
@@ -1109,30 +1232,56 @@ export function App() {
     } catch (e) { setStatus(t('status.notSaved', { error: reasonOf(e) })); }
   }, [open, handleOutcome]);
 
+  /** How Send a copy went, in the status line; a copy waiting on a second tap opens its dialog. */
+  const afterSend = useCallback((outcome: SendOutcome, name: string) => {
+    if (outcome.kind === 'sent') setStatus(t('status.sent', { name }));
+    else if (outcome.kind === 'cancelled') setStatus(t('status.send.cancelled'));
+    else if (outcome.kind === 'unsupported') setStatus(t('status.send.unsupported'));
+    // The browser will not send a Word document at all: said, and not offered again in this session.
+    else if (outcome.kind === 'refused') { setStatus(t('status.send.refused')); setCanSend(false); }
+    else if (outcome.kind === 'ready') setSendReady(outcome.file);
+    else { setSelfCheck({ error: outcome.error, diagnosis: outcome.diagnosis, format: outcome.format }); setStatus(t('status.send.selfCheckFailed')); }
+  }, []);
+
+  /** Send a copy (ED-013 section 3.8, P8): the saved file to the share sheet; the document stays unsaved if it was. */
+  const doSendCopy = useCallback(async () => {
+    if (!open) return;
+    try { afterSend(await sendCopy(open.session, open.name), open.name); } catch (e) { setStatus(t('status.send.failed', { error: reasonOf(e) })); }
+  }, [open, afterSend]);
+
+  const sendAgain = useCallback(async (file: File) => {
+    setSendReady(null);
+    try { afterSend(await sendFile(file, true), file.name); } catch (e) { setStatus(t('status.send.failed', { error: reasonOf(e) })); }
+  }, [afterSend]);
+
   /** Save As, or with `flatOpc` the palette's Save as Flat OPC XML (ED-005 section 12.122): the name the file is given decides its form. */
   const doSaveAs = useCallback(async (options: { flatOpc?: boolean } = {}) => {
     if (!open) return;
+    savingRef.current = true;
     try {
       const outcome = await saveAs(open.session, open.name, options);
       if (outcome.kind === 'saved' && outcome.handle) {
         const file = await outcome.handle.getFile();
         // The document is now the file just written: a Markdown source ends here (ED-011 section 3.8), and any offer about the old file with it.
-        const { source: _source, ...next } = saved(open, { handle: outcome.handle, name: outcome.name ?? open.name, lastModified: file.lastModified });
+        const { source: _source, ...next } = saved(open, { handle: outcome.handle, name: outcome.name ?? open.name, lastModified: file.lastModified, disk: outcome.result.bytes });
         setOpen(next);
         setDiskChange(null);
       }
       await handleOutcome(open, outcome, 'saveAs');
     } catch (e) { setStatus(t('status.notSaved', { error: reasonOf(e) })); }
+    finally { savingRef.current = false; }
   }, [open, handleOutcome]);
 
   const doSave = useCallback(async () => {
     if (!open) return;
     if (!open.handle || !inPlace) return doDownload();
+    savingRef.current = true;
     try {
-      const outcome = await saveInPlace(open.session, open.handle, open.lastModified);
-      if (outcome.kind === 'saved' && outcome.lastModified !== undefined) { ownWriteRef.current = outcome.lastModified; setOpen(saved(open, { lastModified: outcome.lastModified })); }
+      const outcome = await saveInPlace(open.session, open.handle, open.lastModified, open.disk);
+      if (outcome.kind === 'saved' && outcome.lastModified !== undefined) { ownWriteRef.current = outcome.lastModified; setOpen(saved(open, { lastModified: outcome.lastModified, disk: outcome.result.bytes })); }
       await handleOutcome(open, outcome, 'inPlace');
     } catch (e) { setStatus(t('status.notSaved', { error: reasonOf(e) })); }
+    finally { savingRef.current = false; }
   }, [open, inPlace, doDownload, handleOutcome]);
 
   // Ctrl+S (⌘S) saves from anywhere in the application, as Ctrl+P prints: taken in the capture phase,
@@ -1179,11 +1328,116 @@ export function App() {
   const summary = open ? diagnosticSummary(open.session.diagnostics, listedChanges(open.session)) : '';
   const fsa = hasFileSystemAccess();
   const offer = suggested && open && suggested.session === open.session ? suggested.ids.filter((id) => id !== perspective).map((id) => perspectiveNamed(id)).filter((p) => p !== undefined) : [];
-  const panelShown = panel.open && editor !== null && current.tabs.length > 0;
+  // The compact layout draws no side panel (ED-013 section 3.9): its Review use becomes a sheet (S3).
+  const panelShown = panel.open && editor !== null && current.tabs.length > 0 && !compact;
+
+  /** The Options fields: the full layout's Options menu and the compact layout's menu sheet show the same (ED-013 section 3.2). */
+  const optionsFields = (
+    <>
+      <fieldset>
+        <legend>{tr('options.group.thisDocument')}</legend>
+        <label>{tr('options.defaultTabStop')}{' '}
+          <input type="number" step={0.5} min={0.5} data-testid="option-default-tab-stop" disabled={!open} value={open ? defaultTabStop : ''}
+            onFocus={() => { if (open && defaultTabStop === '') setDefaultTabStop(String(open.session.defaultTabStop / 20)); }}
+            onChange={(e) => setDefaultTabStop(e.target.value)}
+            onBlur={() => void commitDefaultTabStop()}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void commitDefaultTabStop(); } }} />
+        </label>
+      </fieldset>
+      <fieldset>
+        <legend>{tr('options.group.application')}</legend>
+        <label>{tr('options.language')}{' '}
+          <select data-testid="option-language" value={languageChoice ?? ''} onChange={(e) => { const v = e.target.value === '' ? null : e.target.value; setLanguageChoice(v); setLanguage(v).catch(() => setStatus(t('status.language.failed'))); }}>
+            <option value="">{tr('options.language.auto', { language: nativeName(browserMatch()) })}</option>
+            {availableLanguages().map((tag) => <option key={tag} value={tag} lang={tag}>{nativeName(tag)}</option>)}
+          </select>
+        </label>
+        {isDraft(lang) && <p className="meta" data-testid="language-draft">{tr('options.language.draft')}</p>}
+        <label>{tr('options.layout')}{' '}
+          <select data-testid="option-layout" value={layoutChoice} onChange={(e) => { const v = isLayoutChoice(e.target.value) ? e.target.value : 'auto'; setLayoutChoice(v); saveLayout(v); }}>
+            <option value="auto">{tr('options.layout.auto')}</option>
+            <option value="compact">{tr('options.layout.compact')}</option>
+            <option value="full">{tr('options.layout.full')}</option>
+          </select>
+        </label>
+        <label className="check"><input type="checkbox" data-testid="option-headers" checked={headersAndFooters} onChange={(e) => setOption(OPTION_HEADERS, e.target.checked)} /> {tr('options.headers')}</label>
+      </fieldset>
+      <fieldset>
+        <legend>{tr('options.group.allDocuments')}</legend>
+        <label>{tr('options.pageSize')}{' '}
+          <select data-testid="option-page-size" value={pageSize ?? ''} onChange={(e) => { const v = isPageSize(e.target.value) ? e.target.value : undefined; setPageSize(v); savePageSize(v); }}>
+            <option value="">{tr('options.pageSize.ask')}</option>
+            {PAGE_SIZES.map((s) => <option key={s.id} value={s.id}>{tr(`pageSize.${s.id}`)}</option>)}
+          </select>
+        </label>
+        <label>{tr('options.margins')}{' '}
+          <select data-testid="option-margins" value={margins} onChange={(e) => { const v = isMarginPreset(e.target.value) ? e.target.value : 'normal'; setMargins(v); saveMargins(v); }}>
+            <option value="normal">{tr('sectionDialog.margins.normal')}</option>
+            <option value="narrow">{tr('sectionDialog.margins.narrow')}</option>
+          </select>
+        </label>
+        <label className="check"><input type="checkbox" data-testid="option-app" checked={writeApp} onChange={(e) => setOption(OPTION_APP, e.target.checked)} /> {tr('options.writeApp', { name: APPLICATION_NAME })}</label>
+        <label className="check"><input type="checkbox" data-testid="option-save-in-place" checked={inPlace} onChange={(e) => setOption(OPTION_SAVE_IN_PLACE, e.target.checked)} /> {tr('options.saveInPlace')}</label>
+        <label className="check"><input type="checkbox" data-testid="option-marks" checked={formattingMarks} onChange={(e) => setOption(OPTION_MARKS, e.target.checked)} /> {tr('options.formattingMarks')}</label>
+        <label className="check"><input type="checkbox" data-testid="option-ask-before-close" checked={askBeforeClose} onChange={(e) => setOption(OPTION_ASK_BEFORE_CLOSE, e.target.checked)} /> {tr('options.askBeforeClose')}</label>
+        <label className="check"><input type="checkbox" data-testid="option-spellcheck" checked={spellcheck} onChange={(e) => setOption(OPTION_SPELLCHECK, e.target.checked)} /> {tr('options.spellcheck')}</label>
+      </fieldset>
+      <fieldset>
+        <legend>{tr('options.group.sharing')}</legend>
+        <label>{tr('options.name')}{' '}
+          <input type="text" data-testid="option-name" placeholder={localUser('').name} value={userName}
+            onChange={(e) => { setUserName(e.target.value); setNameOption(e.target.value); }} />
+        </label>
+        <label>{tr('options.relay')}{' '}
+          <input type="url" data-testid="option-relay" placeholder="wss://relay.example.org" value={relay}
+            onChange={(e) => { setRelay(e.target.value); setRelayOption(e.target.value); }} />
+        </label>
+      </fieldset>
+      <fieldset>
+        <legend>{tr('options.group.services')}</legend>
+        <label>{tr('options.companion')}{' '}
+          <input type="url" data-testid="option-companion" placeholder="http://localhost:4174" value={companion}
+            onChange={(e) => { setCompanion(e.target.value); try { localStorage.setItem(OPTION_COMPANION, e.target.value); } catch { /* ignore */ } }} />
+        </label>
+        <label>{tr('options.askKey')}{' '}
+          <input type="password" data-testid="option-ask-key" autoComplete="off" value={askKey} onChange={(e) => { setAskKey(e.target.value); setAskOption(OPTION_ASK_KEY, e.target.value); }} />
+        </label>
+        <label>{tr('options.askBaseUrl')}{' '}
+          <input type="url" data-testid="option-ask-base-url" placeholder="https://api.anthropic.com" value={askBaseUrl} onChange={(e) => { setAskBaseUrl(e.target.value); setAskOption(OPTION_ASK_BASE_URL, e.target.value); }} />
+        </label>
+      </fieldset>
+    </>
+  );
+
+  /** The compact layout's chrome (ED-013 section 3.2) in place of the application bar, the menus and the ribbon. */
+  const compactShell = (
+    <>
+      <CompactShell editor={editor} active={active} name={open ? `${open.onDisk ? onDiskName(open.name, tr) : open.name}${dirty ? ' •' : ''}` : undefined}
+        perspective={perspective} onPerspective={(id) => { switchPerspective(id); if (id === 'review') setReviewSheet(true); }}
+        labels={{ edit: perspectiveLabel(perspectiveNamed('edit') ?? current), review: perspectiveLabel(perspectiveNamed('review') ?? current) }}
+        tracking={{ author: localUser(userName).name, onToggle: () => void setTracking('toggle'), onStatus: setStatus, local: trackingLocal }}
+        keyboard={keyboard} options={optionsFields}
+        actions={{
+          onOpen: fsa ? () => void onPick() : () => openInputRef.current?.click(),
+          onNew: () => void startNew(),
+          ...(open?.handle && inPlace ? { onSave: () => void doSave() } : {}),
+          ...(fsa ? { onSaveAs: () => void doSaveAs() } : {}),
+          onDownload: () => void doDownload(),
+          ...(canSend ? { onSendCopy: () => void doSendCopy() } : {}),
+          ...(open && !open.room && relay.trim() !== '' ? { onShare: () => void doShare() } : {}),
+          onJoin: () => setJoinDialog(true),
+          onFind: () => openFind(false),
+          onClose: () => { if (askBeforeClose && dirty) setCloseAsk(true); else void closeCurrent(true); },
+          onPalette: () => setPalette(true),
+        }} />
+      <input ref={openInputRef} className="compact-open-input" type="file" accept={OPEN_ACCEPT} data-testid="open" tabIndex={-1} aria-hidden="true" onChange={(e) => void onFile(e.target.files?.[0])} />
+    </>
+  );
 
   return (
-    <div className="app" lang={lang} dir={directionOf(lang)} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+    <div className={`app${compact ? ' compact' : ''}${keyboard.open ? ' keyboard-open' : ''}${keyboard.landscape ? ' landscape' : ''}`} lang={lang} dir={directionOf(lang)} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); const file = e.dataTransfer.files[0]; void handleOfDrop(e.dataTransfer).then((handle) => onFile(file, handle)); }}>
+      {compact ? compactShell : (<>
       <div className="app-bar" role="toolbar" aria-label={tr('app.bar')}>
         <span className="title">docx4j editor</span>
         <button type="button" data-testid="new" onClick={() => void startNew()}>{tr('app.new')}</button>
@@ -1266,75 +1520,12 @@ export function App() {
         <details className="panels-menu options-menu" onToggle={(e) => placeMenuPane(e.currentTarget)}>
           <summary aria-label={tr('options.menu')}>{tr('options.menu')}</summary>
           <div className="menu-pane">
-            <fieldset>
-              <legend>{tr('options.group.thisDocument')}</legend>
-              <label>{tr('options.defaultTabStop')}{' '}
-                <input type="number" step={0.5} min={0.5} data-testid="option-default-tab-stop" disabled={!open} value={open ? defaultTabStop : ''}
-                  onFocus={() => { if (open && defaultTabStop === '') setDefaultTabStop(String(open.session.defaultTabStop / 20)); }}
-                  onChange={(e) => setDefaultTabStop(e.target.value)}
-                  onBlur={() => void commitDefaultTabStop()}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void commitDefaultTabStop(); } }} />
-              </label>
-            </fieldset>
-            <fieldset>
-              <legend>{tr('options.group.application')}</legend>
-              <label>{tr('options.language')}{' '}
-                <select data-testid="option-language" value={languageChoice ?? ''} onChange={(e) => { const v = e.target.value === '' ? null : e.target.value; setLanguageChoice(v); setLanguage(v).catch(() => setStatus(t('status.language.failed'))); }}>
-                  <option value="">{tr('options.language.auto', { language: nativeName(browserMatch()) })}</option>
-                  {availableLanguages().map((tag) => <option key={tag} value={tag} lang={tag}>{nativeName(tag)}</option>)}
-                </select>
-              </label>
-              {isDraft(lang) && <p className="meta" data-testid="language-draft">{tr('options.language.draft')}</p>}
-              <label className="check"><input type="checkbox" data-testid="option-headers" checked={headersAndFooters} onChange={(e) => setOption(OPTION_HEADERS, e.target.checked)} /> {tr('options.headers')}</label>
-            </fieldset>
-            <fieldset>
-              <legend>{tr('options.group.allDocuments')}</legend>
-              <label>{tr('options.pageSize')}{' '}
-                <select data-testid="option-page-size" value={pageSize ?? ''} onChange={(e) => { const v = isPageSize(e.target.value) ? e.target.value : undefined; setPageSize(v); savePageSize(v); }}>
-                  <option value="">{tr('options.pageSize.ask')}</option>
-                  {PAGE_SIZES.map((s) => <option key={s.id} value={s.id}>{tr(`pageSize.${s.id}`)}</option>)}
-                </select>
-              </label>
-              <label>{tr('options.margins')}{' '}
-                <select data-testid="option-margins" value={margins} onChange={(e) => { const v = isMarginPreset(e.target.value) ? e.target.value : 'normal'; setMargins(v); saveMargins(v); }}>
-                  <option value="normal">{tr('sectionDialog.margins.normal')}</option>
-                  <option value="narrow">{tr('sectionDialog.margins.narrow')}</option>
-                </select>
-              </label>
-              <label className="check"><input type="checkbox" data-testid="option-app" checked={writeApp} onChange={(e) => setOption(OPTION_APP, e.target.checked)} /> {tr('options.writeApp', { name: APPLICATION_NAME })}</label>
-              <label className="check"><input type="checkbox" data-testid="option-save-in-place" checked={inPlace} onChange={(e) => setOption(OPTION_SAVE_IN_PLACE, e.target.checked)} /> {tr('options.saveInPlace')}</label>
-              <label className="check"><input type="checkbox" data-testid="option-marks" checked={formattingMarks} onChange={(e) => setOption(OPTION_MARKS, e.target.checked)} /> {tr('options.formattingMarks')}</label>
-              <label className="check"><input type="checkbox" data-testid="option-ask-before-close" checked={askBeforeClose} onChange={(e) => setOption(OPTION_ASK_BEFORE_CLOSE, e.target.checked)} /> {tr('options.askBeforeClose')}</label>
-              <label className="check"><input type="checkbox" data-testid="option-spellcheck" checked={spellcheck} onChange={(e) => setOption(OPTION_SPELLCHECK, e.target.checked)} /> {tr('options.spellcheck')}</label>
-            </fieldset>
-            <fieldset>
-              <legend>{tr('options.group.sharing')}</legend>
-              <label>{tr('options.name')}{' '}
-                <input type="text" data-testid="option-name" placeholder={localUser('').name} value={userName}
-                  onChange={(e) => { setUserName(e.target.value); setNameOption(e.target.value); }} />
-              </label>
-              <label>{tr('options.relay')}{' '}
-                <input type="url" data-testid="option-relay" placeholder="wss://relay.example.org" value={relay}
-                  onChange={(e) => { setRelay(e.target.value); setRelayOption(e.target.value); }} />
-              </label>
-            </fieldset>
-            <fieldset>
-              <legend>{tr('options.group.services')}</legend>
-              <label>{tr('options.companion')}{' '}
-                <input type="url" data-testid="option-companion" placeholder="http://localhost:4174" value={companion}
-                  onChange={(e) => { setCompanion(e.target.value); try { localStorage.setItem(OPTION_COMPANION, e.target.value); } catch { /* ignore */ } }} />
-              </label>
-              <label>{tr('options.askKey')}{' '}
-                <input type="password" data-testid="option-ask-key" autoComplete="off" value={askKey} onChange={(e) => { setAskKey(e.target.value); setAskOption(OPTION_ASK_KEY, e.target.value); }} />
-              </label>
-              <label>{tr('options.askBaseUrl')}{' '}
-                <input type="url" data-testid="option-ask-base-url" placeholder="https://api.anthropic.com" value={askBaseUrl} onChange={(e) => { setAskBaseUrl(e.target.value); setAskOption(OPTION_ASK_BASE_URL, e.target.value); }} />
-              </label>
-            </fieldset>
+            {optionsFields}
           </div>
         </details>
       </div>
       {editor && open && current.toolbar !== 'none' && <Toolbar editor={active ?? editor} styles={open.styles} fonts={open.fonts} preset={current.toolbar} controls={current.controls === true} onControl={current.tabs.some((t) => t.id === 'control') ? () => setTab('control') : undefined} onFitTable={() => void fitTable()} />}
+      </>)}
       {open && editor && stale?.session === open.session && (
         <div className="banner offer" role="status" data-testid="stale-offer">
           {tr('banner.stale', { count: stale.counts.total })}
@@ -1426,7 +1617,8 @@ export function App() {
                   <div ref={setMountEl} data-testid="editor" />
                   {editor && <FootnotesPanel editor={editor} session={open.session} onStatus={setStatus} onActivate={onActivate} onDestroy={onSurfaceDestroy} onPaste={onPaste} onMarkdownOffer={onMarkdownOffer} shortcuts={shortcuts} />}
                 </div>
-                {editor && <CommentsMargin editor={editor} session={open.session} me={localUser(userName).name} onStatus={setStatus} onActivate={onActivate} onDestroy={onSurfaceDestroy} shortcuts={shortcuts} />}
+                {/* Not in the compact layout (ED-013 section 3.7): its threads come as a sheet, and a hidden margin would take the caret of a new comment. */}
+                {editor && !compact && <CommentsMargin editor={editor} session={open.session} me={localUser(userName).name} onStatus={setStatus} onActivate={onActivate} onDestroy={onSurfaceDestroy} shortcuts={shortcuts} />}
               </div>
             )
             : (
@@ -1444,6 +1636,26 @@ export function App() {
           </>
         )}
       </div>
+      {/* The bar above the keyboard, in the status bar's place while the keyboard is open (ED-013 section 3.4). */}
+      {keyboardBar && editor && open && (
+        <KeyboardBar editor={editor} surface={active ?? editor} session={open.session} review={perspective === 'review'} landscape={keyboard.landscape} onStatus={setStatus}
+          threads={compactThreads} onComments={(ids) => { if (ids.length > 0) setThreadSheet(ids); }}
+          onComment={() => { const { from, to } = editor.state.selection; setCommentSheet(snippetOf(editor.state.doc.textBetween(from, to, ' ', ' '))); }} />
+      )}
+      {/* The comments' colours on their text, which the margin gives in the full layout (ED-013 section 3.7: the text keeps its highlight). */}
+      {compact && compactThreads.length > 0 && <style>{commentColours(compactThreads)}</style>}
+      {compact && commentSheet !== null && editor && open && (
+        <NewCommentSheet quote={commentSheet} {...(userName.trim() === '' ? { askName: localUser('').name } : {})} onClose={() => setCommentSheet(null)}
+          onPost={(text, name) => { if (name !== undefined) { setUserName(name); setNameOption(name); } void newComment(name ?? userName, text); }} />
+      )}
+      {compact && threadSheet !== null && editor && open && (
+        <ThreadSheet editor={editor} session={open.session} threads={compactThreads} ids={threadSheet} me={localUser(userName).name}
+          {...(userName.trim() === '' ? { askName: localUser('').name } : {})} onReply={(id, text, name) => void replyComment(id, text, name)}
+          onStatus={setStatus} onClose={() => setThreadSheet(null)} />
+      )}
+      {compact && reviewSheet && editor && open && (
+        <ReviewSheet editor={editor} session={open.session} onStatus={setStatus} onTrackChanges={() => void setTracking('TrackAll')} onClose={() => setReviewSheet(false)} />
+      )}
       {/* The status line: a bar of its own, one line tall whatever it says, so that the app bar's buttons
           never squeeze it to nothing (they did at 1440 pixels: Jason's by-hand run, ED-005 section 12.29) and
           a message never moves the page under a click. */}
@@ -1476,6 +1688,7 @@ export function App() {
         <TrackingNameDialog initial={localUser('').name} onClose={() => setAskTrackingName(false)}
           onChoose={(name) => { setAskTrackingName(false); setUserName(name); setNameOption(name); void setTracking('TrackAll', name); }} />
       )}
+      {sendReady && <SendReadyDialog name={sendReady.name} onSend={() => void sendAgain(sendReady)} onClose={() => { setSendReady(null); setStatus(t('status.send.cancelled')); }} />}
       {selfCheck && open && (
         <SelfCheckDialog error={selfCheck.error} session={open.session} diagnosis={selfCheck.diagnosis} name={diagnosisName(open.name, selfCheck.format)}
           onDiagnosis={() => download(selfCheck.diagnosis, diagnosisName(open.name, selfCheck.format))} onClose={() => setSelfCheck(null)} />

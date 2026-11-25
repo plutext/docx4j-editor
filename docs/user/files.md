@@ -17,6 +17,20 @@ with a handle. Before writing, Save checks the file's modification time against 
 opened or last saved, and refuses with "changed on disk" when another program wrote the file
 meanwhile, so that it never writes over that program's save unseen.
 
+## Sending a copy
+
+Where the browser can hand a Word document to another app, **Send a copy…** gives the saved `.docx` to
+the system's share sheet, so that a document goes straight to mail or a chat. It is in the phone layout's
+menu and in the command palette, and the copy is checked as a download is. It writes nothing and does not
+count as a save: a document with unsaved changes still has them. When making the copy takes long enough
+that the browser no longer counts the tap, the editor says the copy is ready and asks for one more tap on
+**Send**.
+
+Chrome, Edge and Samsung Internet do not send Word documents this way: they share only PDFs, text,
+pictures, sound and video. **Send a copy…** is not offered in them. On an Android phone, use **Download**,
+then share the file from Chrome's download message or from the Files app. Other browsers offer it where
+they say they can send a Word document (Safari on an iPhone is still to be checked).
+
 ## Saving as Flat OPC XML
 
 A document can be saved as Flat OPC: the whole package as one XML file, which Word opens as a "Word
@@ -45,6 +59,10 @@ the banner's second sentence compares the text:
   properties or another part of the file (a header, a style, a setting);
 - or that the disk version could not be read, for instance while another program is still
   writing it.
+
+A file whose time changed but whose bytes are the ones the editor last read or wrote has not changed:
+nothing is offered, and **Save** goes ahead. On a phone the system can report a new time for the
+editor's own save a moment after it.
 
 What the banner offers depends on whether you have edited the document here.
 

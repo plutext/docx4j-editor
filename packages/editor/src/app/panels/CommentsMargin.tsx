@@ -8,6 +8,9 @@
 // (`CommentsStore`), one's own comments are edited in place (an `EditableStoryView` over the
 // comment's fragment, the toolbar following it as for a note), others' are shown as their fragment
 // has them, and a thread can be replied to, resolved, reopened and deleted.
+//
+// The compact layout draws no margin; its thread sheet (ED-013 section 3.7) draws the same `Thread`, without the
+// margin's positioning, in its sheet mode (`ThreadActions.sheet`).
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { commentFocusOf, referenceIdOf, type EditorDocument, type CommentThread, type Story as StoryModel } from '@docx4j/editor-model';
 import type { Node as PMNode } from 'prosemirror-model';
@@ -208,8 +211,7 @@ export function CommentsMargin({ editor, session, me, onStatus, onActivate, onDe
 
   if (threads.length === 0) return null;
 
-  // The anchored text takes its author's colour through a variable the mark's span reads.
-  const css = threads.flatMap((t) => [t, ...t.replies]).map((t) => `.docx-editor .comment[data-comment="${t.id}"] { --comment-color: ${authorColor(t.author)}; }`).join('\n');
+  const css = commentColours(threads);
   const height = Math.max(0, ...[...tops.entries()].map(([id, top]) => top + (bubbles.current.get(id)?.offsetHeight ?? 0)));
 
   return (
@@ -230,8 +232,13 @@ export function CommentsMargin({ editor, session, me, onStatus, onActivate, onDe
   );
 }
 
+/** The anchored text takes its author's colour through a variable the mark's span reads: the margin's rules, and the compact layout's. */
+export function commentColours(threads: readonly CommentThread[]): string {
+  return threads.flatMap((t) => [t, ...t.replies]).map((t) => `.docx-editor .comment[data-comment="${t.id}"] { --comment-color: ${authorColor(t.author)}; }`).join('\n');
+}
+
 /** What a thread's buttons do, and what its editable bodies need: stable for the margin's life, so the memoised threads are not drawn again for them. */
-interface ThreadActions {
+export interface ThreadActions {
   reply: (id: string, text: string) => void;
   resolve: (id: string, value: boolean) => void;
   remove: (id: string) => void;
@@ -241,9 +248,14 @@ interface ThreadActions {
   onActivate?: (surface: EditorSurface) => void;
   onDestroy?: (surface: EditorSurface) => void;
   shortcuts?: Record<string, () => void>;
+  /**
+   * The compact layout's thread sheet (ED-013 section 3.7, P6): every body read-only, Delete on one's own comments
+   * alone, and Reply handing the thread to the sheet's one field rather than opening a box under it.
+   */
+  sheet?: { onReply: (id: string) => void };
 }
 
-interface ThreadProps {
+export interface ThreadProps {
   thread: CommentThread;
   session: EditorDocument;
   editor: DocxEditorView;
@@ -255,11 +267,15 @@ interface ThreadProps {
   reply?: boolean;
 }
 
-/** One comment and its replies, with the thread's buttons: Reply, Resolve or Reopen and Delete for its first comment, Delete for a reply. */
-const Thread = memo(function Thread({ thread, session, editor, me, onSelect, lang, actions, reply = false }: ThreadProps) {
+/**
+ * One comment and its replies, with the thread's buttons: Reply, Resolve or Reopen and Delete for its first comment, Delete for a
+ * reply. In the sheet mode, Delete only on one's own.
+ */
+export const Thread = memo(function Thread({ thread, session, editor, me, onSelect, lang, actions, reply = false }: ThreadProps) {
   const [replying, setReplying] = useState(false);
   const own = me !== undefined && thread.author === me;
   const label = tr('comments.by', { author: thread.author });
+  const sheet = actions.sheet;
   return (
     <div className={reply ? 'comment-reply' : 'comment-thread'}>
       <button type="button" className="comment-head" title={thread.orphan ? tr('comments.orphan.title') : tr('comments.select.title')} disabled={thread.orphan} onClick={() => onSelect(thread.id)}>
@@ -267,13 +283,13 @@ const Thread = memo(function Thread({ thread, session, editor, me, onSelect, lan
         <b className="author">{thread.author}</b>
         <span className="meta">{formatDate(thread.date, lang)}</span>
       </button>
-      {own
+      {own && !sheet
         ? <CommentEditor editor={editor} session={session} story={thread.record} label={label} actions={actions} />
-        : <CommentText session={session} story={thread.record} label={label} onFocus={() => actions.onStatus(tr('comments.notYours', { author: thread.author }))} />}
+        : <CommentText session={session} story={thread.record} label={label} onFocus={() => { if (!own) actions.onStatus(tr('comments.notYours', { author: thread.author })); }} />}
       <div className="comment-actions">
-        {!reply && !thread.done && <button type="button" data-testid="comment-reply" onClick={() => setReplying((r) => !r)}>{tr('comments.reply')}</button>}
+        {!reply && !thread.done && <button type="button" data-testid="comment-reply" onClick={() => (sheet ? sheet.onReply(thread.id) : setReplying((r) => !r))}>{tr('comments.reply')}</button>}
         {!reply && <button type="button" data-testid={thread.done ? 'comment-reopen' : 'comment-resolve'} onClick={() => actions.resolve(thread.id, !thread.done)}>{thread.done ? tr('comments.reopen') : tr('comments.resolve')}</button>}
-        <button type="button" data-testid="comment-delete" title={tr('comments.delete.title')} onClick={() => actions.remove(thread.id)}>{tr('comments.delete')}</button>
+        {(!sheet || own) && <button type="button" data-testid="comment-delete" title={tr('comments.delete.title')} onClick={() => actions.remove(thread.id)}>{tr('comments.delete')}</button>}
       </div>
       {thread.replies.map((r) => <Thread key={r.id} thread={r} session={session} editor={editor} me={me} onSelect={onSelect} lang={lang} actions={actions} reply />)}
       {replying && <ReplyBox author={thread.author} onPost={(text) => { setReplying(false); actions.reply(thread.id, text); }} onCancel={() => setReplying(false)} />}

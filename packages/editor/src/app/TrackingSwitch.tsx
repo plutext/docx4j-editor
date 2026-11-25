@@ -18,9 +18,11 @@ export interface TrackingSwitchProps {
   onStatus: (text: string) => void;
   /** Set by the application while it changes the mode itself, so the change is not reported as a peer's. */
   local: { current: boolean };
+  /** The compact layout's label, "Tracking", for a phone's one bar (ED-013 section 3.2). */
+  short?: boolean;
 }
 
-export function TrackingSwitch({ editor, author, onToggle, onStatus, local }: TrackingSwitchProps) {
+export function TrackingSwitch({ editor, author, onToggle, onStatus, local, short }: TrackingSwitchProps) {
   const t = useT();
   useEditorState(editor);
   const on = editor.session.trackingMode === 'TrackAll';
@@ -33,8 +35,11 @@ export function TrackingSwitch({ editor, author, onToggle, onStatus, local }: Tr
   }, [on, local, onStatus, t]);
   return (
     <button type="button" className={`tracking-switch${on ? ' on' : ''}`} aria-pressed={on} data-testid="tracking-switch"
-      title={on ? t('tracking.switch.on.title', { author }) : t('tracking.switch.off.title')} onClick={onToggle}>
-      {t('tracking.switch')}
+      title={on ? t('tracking.switch.on.title', { author }) : t('tracking.switch.off.title')}
+      // The focus stays where it was, as on the toolbar's buttons: on a phone a tap had closed the keyboard mid-sentence
+      // (ED-013 section 9). The name dialog, the first time, takes the focus itself and gives it back.
+      onMouseDown={(e) => e.preventDefault()} onClick={onToggle}>
+      {t(short ? 'tracking.switch.short' : 'tracking.switch')}
     </button>
   );
 }
@@ -50,7 +55,10 @@ export function TrackingIndicator({ editor, author, onToggle }: Pick<TrackingSwi
   const on = editor.session.trackingMode === 'TrackAll';
   return (
     <button type="button" className={`tracking-indicator${on ? ' on' : ''}`} data-testid="tracking-indicator"
-      title={on ? t('tracking.switch.on.title', { author }) : t('tracking.switch.off.title')} onClick={onToggle}>
+      title={on ? t('tracking.switch.on.title', { author }) : t('tracking.switch.off.title')}
+      // The focus stays where it was, as on the toolbar's buttons: on a phone a tap had closed the keyboard mid-sentence
+      // (ED-013 section 9). The name dialog, the first time, takes the focus itself and gives it back.
+      onMouseDown={(e) => e.preventDefault()} onClick={onToggle}>
       {t('tracking.indicator', { state: on ? 'on' : 'off' })}
     </button>
   );
