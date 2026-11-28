@@ -12,10 +12,19 @@
 // - **Connected first:** Playwright connects before any webview opens. A frame made before the connection is not seen.
 // - **Stopped whole:** VS Code runs in a process group of its own, which a close kills, a crash's SIGKILL included. Killing
 //   the main process alone left its renderers and extension host running, which loaded the machine and held a profile.
+// - **No sandbox on Linux CI**, as `@vscode/test-electron` launches VS Code (microsoft/vscode#84238). A downloaded VS Code's
+//   `chrome-sandbox` is not setuid root, so Chromium's sandbox needs an unprivileged user namespace, and without one VS Code
+//   aborts at its start (reproduced under `bwrap --disable-userns`). On GitHub's Ubuntu runner every case had waited two
+//   minutes for a page that never came. A run here keeps the sandbox, as a person's VS Code does.
+// - **Secrets in plain text on Linux CI** (`--password-store=basic`): with no OS keyring, VS Code meets the first secret
+//   stored (the Ask key) with a modal dialog. Given the switch, its main process turns plain-text encryption on at start
+//   and stores the secret without asking (read in 1.147.0's `EncryptionMainService`).
+// - **VS Code's output** goes to `vscode.log` beside its profile (a restart adds to it). A launch that fails ends at once
+//   if VS Code has exited, and says the log's last lines either way.
 // - `DOCX4J_SUITE_DEBUG=1` logs the DevTools connection's attempts.
 import { chromium, expect, type Browser, type Frame, type Page } from '@playwright/test';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 
@@ -144,6 +153,7 @@ export class VsCode {
     const development = options.installed ? [] : [EXTENSION, DRIVER, ...(options.extensions ?? [])];
     const args = [
       ...(process.platform === 'linux' ? ['--ozone-platform=x11'] : []),
+      ...(process.platform === 'linux' && process.env['CI'] ? ['--no-sandbox', '--disable-gpu-sandbox', '--password-store=basic'] : []),
       ...profile,
       ...development.map((e) => `--extensionDevelopmentPath=${e}`),
       ...(options.locale ? [`--locale=${options.locale}`] : []),
@@ -163,8 +173,11 @@ export class VsCode {
     // A process group of its own, so that a close stops VS Code's helpers with it: a renderer left running an export
     // would load the machine for the next launch.
     if (process.env['DOCX4J_SUITE_DEBUG']) console.log('launch:', args.join(' '));
-    const child = spawn(await vscodeExecutable(), args, { env, stdio: 'ignore', detached: true });
-    const { browser, page } = await connect(cdp);
+    const log = join(root, 'vscode.log');
+    const out = openSync(log, 'a');
+    const child = spawn(await vscodeExecutable(), args, { env, stdio: ['ignore', out, out], detached: true });
+    closeSync(out);
+    const { browser, page } = await connect(cdp, child, log);
     const vs = new VsCode(options, folder, child, browser, page, driverPort);
     await vs.waitForDriver();
     vs.version = (await vs.ctl<{ version: string }>({ op: 'ping' })).version;
@@ -368,9 +381,12 @@ async function install(vsixes: string[], profile: string[]): Promise<void> {
   }
 }
 
-async function connect(port: number): Promise<{ browser: Browser; page: Page }> {
+async function connect(port: number, child: ChildProcess, log: string): Promise<{ browser: Browser; page: Page }> {
   const until = Date.now() + 120_000;
   while (Date.now() < until) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`VS Code exited (${child.exitCode ?? child.signalCode}) before its workbench page came. ${logTail(log)}`);
+    }
     try {
       const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
       for (let i = 0; i < 120; i++) {
@@ -384,7 +400,14 @@ async function connect(port: number): Promise<{ browser: Browser; page: Page }> 
       await sleep(500);
     }
   }
-  throw new Error('no workbench page over the DevTools Protocol');
+  throw new Error(`no workbench page over the DevTools Protocol. ${logTail(log)}`);
+}
+
+/** The last lines VS Code wrote, for a launch's failure. */
+function logTail(log: string): string {
+  let text = '';
+  try { text = readFileSync(log, 'utf8').trimEnd(); } catch { /* none */ }
+  return text ? `Its output ended (${log}):\n${text.split('\n').slice(-20).join('\n')}` : `It wrote nothing (${log}).`;
 }
 
 /** The body's caret put at the end of block `i`, through the view (a click races the browser's selection report). */
