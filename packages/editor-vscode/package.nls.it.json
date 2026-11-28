@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Modifica documenti di Word in VS Code: l’XML a vista, controlli contenuto e modelli OpenDoPE, modifiche rilevate e gli interventi di un agente a suo nome.",
+  "untrusted": "In modalità con restrizioni i documenti si aprono e si possono modificare, ma le macro di un documento non vengono proposte e il companion dell’agente non viene avviato.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown come documento di Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "Nuovo documento di Word",
+  "command.newDocument.short": "Documento di Word",
+  "command.commands": "Comandi",
+  "command.pasteText": "Incolla come testo normale",
+  "command.copyAgentAddress": "Copia indirizzo MCP dell’agente",
+  "command.join": "Partecipa a una stanza…",
+  "mcp.label": "docx4j editor: il companion dell’agente",
+  "config.agent.name": "Il nome dell’agente: sulle sue modifiche rilevate, sui suoi commenti e nell’elenco delle persone. Ha effetto al successivo avvio del companion, la prossima volta che si apre la finestra.",
+  "command.ask.setKey": "Imposta chiave API Anthropic…",
+  "command.ask.removeKey": "Rimuovi chiave API Anthropic",
+  "config.ask.baseUrl": "L’indirizzo a cui la casella Chiedi invia le richieste con la tua chiave API Anthropic: quello di Anthropic (`https://api.anthropic.com`) se è vuoto, altrimenti un proxy gestito dalla tua organizzazione. Lo contengono solo le tue impostazioni utente, nel profilo predefinito, mai quelle di un’area di lavoro: la chiave va dove indica questa impostazione."
+}

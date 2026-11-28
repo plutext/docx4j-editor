@@ -23,6 +23,7 @@ import { optionalBreaksPlugin } from './plugins/optionalbreaks.js';
 import { verticalMotionPlugin } from './plugins/verticalmotion.js';
 import { narrowRemoteReplaces } from './narrow.js';
 import { syncFormattingOnWrite } from './textformat.js';
+import { registerSurfaceKeys, type KeyTest } from './surfacekeys.js';
 import type { Element } from '@docx4j/core-ts';
 import { LANGUAGE_CHANGED } from './plugins/decorations.js';
 import { onLanguageChange } from '../app/i18n.js';
@@ -95,6 +96,16 @@ export interface EditorSurface {
   exportBlock(node: PMNode): Element;
   /** Regenerate the document stylesheet (a section or style change, a style coming into use). */
   refreshCss(): void;
+  /**
+   * Whether this surface binds the key in one of its keymaps, whether or not the key's command would act now: false while the
+   * surface is not editable. The extension's key gate keeps such a key from VS Code (ED-014 section 4.4, P32).
+   */
+  bindsKey(event: KeyboardEvent): boolean;
+  /**
+   * The text pasted as plain text at the selection, as Chromium's paste as plain text pastes it: ProseMirror's paste of the text
+   * with a paste event holding the text alone, so the paste rules apply (one address a link, the Markdown offer; P34).
+   */
+  pasteText(text: string): void;
   destroy(): void;
 }
 
@@ -106,11 +117,17 @@ export abstract class SurfaceBase implements EditorSurface {
   protected readonly listeners = new Set<Listener>();
   protected readonly revoke: (() => void)[] = [];
   protected destroyed = false;
+  /** The keys the surface's keymaps bind, from the tables it installed (`surfaceKeymaps`), as `mount` was given them. */
+  private keyTest: KeyTest | undefined;
 
   protected constructor(readonly id: string, readonly container: HTMLElement, readonly session: EditorDocument, readonly story: Story | undefined, protected readonly options: SurfaceOptions) {}
 
-  /** Make the view over the state with the shared dispatch, report focus, and register. */
-  protected mount(state: EditorState, props: Omit<DirectEditorProps, 'state' | 'dispatchTransaction'>): void {
+  /**
+   * Make the view over the state with the shared dispatch, report focus, and register. `binds` is the test of the keys the
+   * state's keymaps bind, from the same `surfaceKeymaps` call: the extension's key gate asks it (ED-014 section 4.4).
+   */
+  protected mount(state: EditorState, props: Omit<DirectEditorProps, 'state' | 'dispatchTransaction'>, binds: KeyTest): void {
+    this.keyTest = binds;
     // Presence (ED-004 section 5) from the start: added before the view exists, so joining and
     // leaving a room never change the plugin list (presence.ts says why that matters).
     const withPresence = state.reconfigure({ plugins: [...state.plugins, presencePlugin(this.session), markSelectionPlugin(), optionalBreaksPlugin(), verticalMotionPlugin()] });
@@ -193,6 +210,8 @@ export abstract class SurfaceBase implements EditorSurface {
     this.revoke.push(installSelectionBar(this.view, this.container));
     surfaces.set(this.id, this);
     this.revoke.push(() => { if (surfaces.get(this.id) === this) surfaces.delete(this.id); });
+    // For the extension's key gate and its plain paste, by the view's element (ED-014 section 4.4).
+    this.revoke.push(registerSurfaceKeys(this.view.dom, this));
     this.revoke.push(onLanguageChange(() => { if (!this.destroyed) this.relocalise(); }));
   }
 
@@ -210,6 +229,23 @@ export abstract class SurfaceBase implements EditorSurface {
 
   /** After a transaction that changed the document: the body checks the stylesheet, a story asks the body to. */
   protected abstract afterDocChanged(tr: Transaction, next: EditorState): void;
+
+  bindsKey(event: KeyboardEvent): boolean {
+    return !this.destroyed && this.view.editable && (this.keyTest?.(event) ?? false);
+  }
+
+  pasteText(text: string): void {
+    if (this.destroyed || !this.view.editable) return;
+    this.view.focus();
+    // The paste plugin reads the event's own data, as for a paste from the clipboard.
+    let event: ClipboardEvent | undefined;
+    try {
+      const data = new DataTransfer();
+      data.setData('text/plain', text);
+      event = new ClipboardEvent('paste', { clipboardData: data });
+    } catch { event = undefined; }
+    this.view.pasteText(text, event);
+  }
 
   /** An IME composition not yet recorded: the document when it began, and the step maps since. */
   private composition: { start: PMNode; maps: StepMap[] } | undefined;

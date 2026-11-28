@@ -92,7 +92,13 @@ function thirdPartyNotices(): Plugin {
 // the object model loads its 103 mapping modules through a static registry (objects CR-005,
 // 0.2.0), so no bundler hint is needed. ED-002 section 10.3 item 1 records the hint that was
 // here until 2026-09-25, and why it went.
+//
+// A relative base (ED-014 P21): `index.html` names `./assets/…` and the chunks find one another relative to themselves,
+// so one build serves a site's root (the preview server, the companion's `/`), a VS Code webview under the `<base>` its
+// page writes (`app/webview-page.ts`), and any folder it is copied to. The dev server and `vite preview` take it as `/`;
+// the demo passes its own `--base`, which wins.
 export default defineConfig({
+  base: './',
   plugins: [react(), companionDouble(), askDouble(), relayMount(), thirdPartyNotices()],
   build: {
     target: 'es2022',

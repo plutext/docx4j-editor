@@ -4,7 +4,8 @@
 // 12.2): a command's label (the registry's `label` is the command's canonical name, the API's
 // and the palette's match), a perspective's and a tab's (a plugin's own label when the shipped
 // files have no key for it), and the sentences built from the model's data.
-import { preservedCount, commandNamed, type CommandSpec, type Diagnostics, type LockRefusal } from '@docx4j/editor-model';
+import { commandNamed, type CommandSpec, type Diagnostics, type LockRefusal } from '@docx4j/editor-model';
+import type { BannerCounts } from './banner.js';
 import { t, tOr, plainOr } from './i18n.js';
 import type { Perspective, TabSpec } from './perspectives.js';
 
@@ -33,15 +34,18 @@ export function untrackedStatus(what: string): string {
   return t('status.untracked.command', { command: spec ? commandLabel(spec) : what });
 }
 
-/** The banner's sentence over the diagnostics (the model's `summarize`, in the current language), with the tracked changes as the review panel lists them. */
-export function diagnosticSummary(d: Diagnostics, changes: number): string {
+/**
+ * The banner's sentence (the model's `summarize`, in the current language): the elements shown read-only as the file opened, and
+ * what follows the document (`BannerCounts`): the tracked changes and those shown in Word only as the review panel lists them, the
+ * comments not resolved.
+ */
+export function diagnosticSummary(d: Diagnostics, counts: BannerCounts): string {
   const parts: string[] = [];
   if (d.opaque.length > 0) parts.push(t('banner.summary.opaque', { count: d.opaque.length }));
-  if (changes > 0) parts.push(t('banner.summary.tracked', { count: changes }));
-  const kept = preservedCount(d);
-  if (kept > 0) parts.push(t('banner.summary.preserved', { count: kept }));
-  // Comments too, so that a document with comments and nothing else is offered Review (ED-005 section 6.7).
-  if (d.comments > 0) parts.push(t('banner.summary.comments', { count: d.comments }));
+  if (counts.changes > 0) parts.push(t('banner.summary.tracked', { count: counts.changes }));
+  if (counts.preserved > 0) parts.push(t('banner.summary.preserved', { count: counts.preserved }));
+  // Comments too, so that a document with comments and nothing else is offered Review (ED-005 section 6.7): those not resolved.
+  if ((counts.comments ?? 0) > 0) parts.push(t('banner.summary.comments', { count: counts.comments ?? 0 }));
   return parts.length === 0 ? '' : t('banner.summary', { parts: parts.join('; ') });
 }
 

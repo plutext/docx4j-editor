@@ -9,6 +9,7 @@
 //
 // The protocol with the companion: the worker answers `{ type: 'listening', url }` or
 // `{ type: 'error', message, code }` once, and `{ type: 'closed' }` after a `{ type: 'close' }`.
+// `{ type: 'allowOrigin', origin }` allows one more page origin from then on (ED-014 section 4.5).
 import { parentPort, workerData } from 'node:worker_threads';
 import { createRelay } from '@docx4j/editor-relay';
 
@@ -16,13 +17,16 @@ export interface RelayWorkerData {
   data: string;
   port: number;
   host: string;
+  /** Page origins allowed beside the local rule: a VS Code webview's (ED-014 section 4.5). */
+  allowOrigins?: string[];
 }
 
 const port = parentPort!;
-const { data, port: listenPort, host } = workerData as RelayWorkerData;
-const relay = createRelay({ data, port: listenPort, host });
+const { data, port: listenPort, host, allowOrigins } = workerData as RelayWorkerData;
+const relay = createRelay({ data, port: listenPort, host, allowOrigins: allowOrigins ?? [] });
 
-port.on('message', (message: { type?: string }) => {
+port.on('message', (message: { type?: string; origin?: unknown }) => {
+  if (message?.type === 'allowOrigin' && typeof message.origin === 'string') { relay.allowOrigin(message.origin); return; }
   if (message?.type !== 'close') return;
   void relay.destroy().finally(() => port.postMessage({ type: 'closed' }));
 });

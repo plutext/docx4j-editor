@@ -3,7 +3,8 @@ name: Publish the editor's packages to npm
 # On a published GitHub release, publishes @docx4j/editor-model, @docx4j/editor-relay and @docx4j/editor-mcp, in that
 # order, through npm trusted publishing (no token is stored; RELEASING.md), as @docx4j/core-ts's push-to-npm.yml does.
 # The release tag must match the version the packages share. A package whose version is already on npm is skipped, so
-# a run that failed part way through can be re-run. @docx4j/editor, the site, is private and never published.
+# a run that failed part way through can be re-run. @docx4j/editor, the site, is private and never published; the VS Code
+# extension, which shares the version, is published by push-to-marketplace.yml.
 
 on:
   release:
@@ -35,7 +36,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: |
           VERSION="$(node -p "require('./packages/editor-model/package.json').version")"
-          for p in editor-relay editor-mcp editor; do
+          for p in editor-relay editor-mcp editor editor-vscode; do
             V="$(node -p "require('./packages/$p/package.json').version")"
             if [ "$V" != "$VERSION" ]; then echo "::error::packages/$p is at $V, packages/editor-model at $VERSION"; exit 1; fi
           done

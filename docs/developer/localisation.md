@@ -89,6 +89,56 @@ run `npm run locales:check`: it fails on a key used and not defined, and on one 
 used. Pass an identifier as a string (a number argument is formatted as a number, with grouping).
 The other files need nothing: the new key shows in English until a translator adds it.
 
+## The VS Code extension's words
+
+The VS Code extension (`packages/editor-vscode`) has words of its own, outside the application,
+in two files of the format VS Code reads (ED-014 section 4.7):
+
+- `package.nls.json`: the manifest's words, which VS Code shows in its own interface: the
+  extension's name and description, its commands' titles in the command palette, its settings.
+- `l10n/bundle.l10n.json`: the messages the extension shows itself (notifications, input
+  boxes). Each key is the English message, as the code passes it to `vscode.l10n.t('…')`;
+  translate the value. `node scripts/l10n.mjs`, run in the package, writes it from the sources.
+
+Beside each is a draft per language, `package.nls.<id>.json` and `l10n/bundle.l10n.<id>.json`,
+marked `_status` as the application's are.
+
+**Named by VS Code's language id,** which is not always the application's tag:
+
+| Application | VS Code |
+|---|---|
+| `zh-Hans` | `zh-cn` |
+| `zh-Hant` | `zh-tw` |
+| `pt` | `pt-br` |
+
+The others are the same. VS Code reads a bundle at its own id exactly, never a shorter one, so a
+bundle named `pt` would never be read for `pt-br`.
+
+**What a person sees** is VS Code's language, not the browser's. That is the person's own only
+where a VS Code language pack for it is installed, and English otherwise. Microsoft publishes
+current packs for Czech, German, Spanish, French, Italian, Japanese, Korean, Polish, Brazilian
+Portuguese, Russian, Turkish and both Chinese. Open VSX also lists a community pack for
+Ukrainian and one for Arabic, and Microsoft's packs of 2020 for Indonesian and Dutch, whose
+translation of today's VS Code is partial. It lists none for Malay, Thai or Vietnamese, so those
+drafts are not seen until one exists. A key a draft lacks shows in English.
+
+**The page and VS Code can speak different languages.** The editor inside the extension follows
+VS Code's language unless the person chose another in Options, and runs in a language VS Code
+has no pack for. So where the page names one of the extension's commands, it names it as VS
+Code's palette shows it, through `{command}`, never by translating the name itself.
+
+**The rules** are the application's, and a few more:
+
+- "docx4j editor" is never translated: the product's name stands wherever English has it.
+- `{0}`, `{1}` (the bundle's placeholders) are kept, the same ones as English.
+- Code in backquotes in the manifest's words (`` `https://api.anthropic.com` ``) is kept as it is.
+- The words for the same things are the application's in that language: Commands, Paste as
+  Plain Text, Join, Share, Invite, the agent, Ask, the companion.
+
+`npm run locales:check` checks these files too (`node packages/editor-vscode/scripts/l10n.mjs
+--check`): the bundle against the sources, every `%key%` of the manifest present, the files
+named by VS Code's ids, and in each draft the rules above. It prints each language's coverage.
+
 ## Licensing
 
 Contributions, translations included, come in under Apache-2.0 and are distributed with the
@@ -101,24 +151,24 @@ contributions says.
 <!-- locales:coverage -->
 | Language | File | Keys | Status |
 |---|---|---|---|
-| English | `en` | 1659/1659 | source |
-| Arabic | `ar` | 1659/1659 | draft |
-| German | `de` | 1659/1659 | draft |
-| Spanish | `es` | 1659/1659 | draft |
-| French | `fr` | 1659/1659 | draft |
-| Indonesian | `id` | 1659/1659 | draft |
-| Italian | `it` | 1659/1659 | draft |
-| Japanese | `ja` | 1659/1659 | draft |
-| Korean | `ko` | 1659/1659 | draft |
-| Malay | `ms` | 1659/1659 | draft |
-| Dutch | `nl` | 1659/1659 | draft |
-| Polish | `pl` | 1659/1659 | draft |
-| Portuguese | `pt` | 1659/1659 | draft |
-| Russian | `ru` | 1659/1659 | draft |
-| Thai | `th` | 1659/1659 | draft |
-| Turkish | `tr` | 1659/1659 | draft |
-| Ukrainian | `uk` | 1659/1659 | draft |
-| Vietnamese | `vi` | 1659/1659 | draft |
-| Simplified Chinese | `zh-Hans` | 1659/1659 | draft |
-| Traditional Chinese | `zh-Hant` | 1659/1659 | draft |
+| English | `en` | 1687/1687 | source |
+| Arabic | `ar` | 1687/1687 | draft |
+| German | `de` | 1687/1687 | draft |
+| Spanish | `es` | 1687/1687 | draft |
+| French | `fr` | 1687/1687 | draft |
+| Indonesian | `id` | 1687/1687 | draft |
+| Italian | `it` | 1687/1687 | draft |
+| Japanese | `ja` | 1687/1687 | draft |
+| Korean | `ko` | 1687/1687 | draft |
+| Malay | `ms` | 1687/1687 | draft |
+| Dutch | `nl` | 1687/1687 | draft |
+| Polish | `pl` | 1687/1687 | draft |
+| Portuguese | `pt` | 1687/1687 | draft |
+| Russian | `ru` | 1687/1687 | draft |
+| Thai | `th` | 1687/1687 | draft |
+| Turkish | `tr` | 1687/1687 | draft |
+| Ukrainian | `uk` | 1687/1687 | draft |
+| Vietnamese | `vi` | 1687/1687 | draft |
+| Simplified Chinese | `zh-Hans` | 1687/1687 | draft |
+| Traditional Chinese | `zh-Hant` | 1687/1687 | draft |
 <!-- /locales:coverage -->

@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "แก้ไขเอกสาร Word ใน VS Code: เห็น XML ได้ทันที ตัวควบคุมเนื้อหาและเทมเพลต OpenDoPE การเปลี่ยนแปลงที่ติดตาม และการแก้ไขของเอเจนต์ภายใต้ชื่อของเอเจนต์เอง",
+  "untrusted": "ในโหมดจำกัด เอกสารจะเปิดและแก้ไขได้ แต่จะไม่มีการเสนอมาโครของเอกสาร และจะไม่เริ่มโปรแกรมคู่หูของเอเจนต์",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown เป็นเอกสาร Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "เอกสาร Word ใหม่",
+  "command.newDocument.short": "เอกสาร Word",
+  "command.commands": "คำสั่ง",
+  "command.pasteText": "วางเป็นข้อความธรรมดา",
+  "command.copyAgentAddress": "คัดลอกที่อยู่ MCP ของเอเจนต์",
+  "command.join": "เข้าร่วมห้อง…",
+  "mcp.label": "docx4j editor: โปรแกรมคู่หูของเอเจนต์",
+  "config.agent.name": "ชื่อของเอเจนต์: แสดงบนการเปลี่ยนแปลงที่ติดตามและข้อคิดเห็นของเอเจนต์ และในรายชื่อผู้คน มีผลเมื่อโปรแกรมคู่หูเริ่มทำงานครั้งถัดไป คือเมื่อเปิดหน้าต่างครั้งถัดไป",
+  "command.ask.setKey": "ตั้งค่าคีย์ API ของ Anthropic…",
+  "command.ask.removeKey": "นำคีย์ API ของ Anthropic ออก",
+  "config.ask.baseUrl": "ที่อยู่ที่ช่อง “ถาม” ใช้ส่งคำขอพร้อมคีย์ API ของ Anthropic ของคุณ: หากว่างไว้จะเป็นที่อยู่ของ Anthropic เอง (`https://api.anthropic.com`) มิฉะนั้นจะเป็นพร็อกซีที่องค์กรของคุณดูแล ค่านี้เก็บไว้ในการตั้งค่าผู้ใช้ของคุณในโปรไฟล์เริ่มต้นเท่านั้น ไม่เคยอยู่ในการตั้งค่าของพื้นที่ทำงาน: คีย์จะถูกส่งไปยังที่ที่ค่านี้ระบุ"
+}

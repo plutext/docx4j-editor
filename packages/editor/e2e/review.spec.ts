@@ -478,7 +478,47 @@ test('the banner offers the Review perspective for a document with tracked chang
   await expect(page.getByTestId('panel-review')).toBeVisible();
   await expect(offer).toHaveCount(0);
   await openFixture(page, 'comments-two.docx');
-  await expect(page.getByTestId('banner')).toContainText('2 comments');
+  await expect(page.getByTestId('banner')).toContainText('2 unresolved comments');
+});
+
+// Jason, 2026-11-28: the banner had counted the file as opened, and stood unchanged through every change accepted and
+// comment resolved. It follows the document; once nothing it reported is left it goes, and stays gone.
+test('the banner follows the document: changes accepted, comments resolved; gone once it has nothing to say, for good', async ({ page }) => {
+  await openFixture(page, 'tracked-changes.docx');
+  const banner = page.getByTestId('banner');
+  await expect(banner).toContainText('2 tracked changes');
+  await page.getByTestId('perspective-review').click();
+  await page.getByTestId('review-accept-all').click();
+  await expect(page.getByTestId('review-count')).toHaveText('No tracked changes in the body.');
+  // The elements shown read-only are the file's as it opened.
+  await expect(banner).not.toContainText('tracked');
+  await expect(banner).toContainText('shown read-only');
+
+  await openFixture(page, 'comments-two.docx');
+  await expect(banner).toContainText('2 unresolved comments');
+  await page.locator('[data-comment-id="0"]').getByTestId('comment-resolve').click();
+  await expect(banner).toContainText('1 unresolved comment.');
+  await page.locator('[data-comment-id="1"]').getByTestId('comment-resolve').click();
+  await expect(banner).not.toContainText('comment');
+  await page.locator('[data-comment-id="1"] summary').click();
+  await page.locator('[data-comment-id="1"]').getByTestId('comment-reopen').click();
+  await expect(banner).toContainText('1 unresolved comment.');
+
+  // Two tracked changes and nothing read-only: accepted, the banner goes, and a change typed after does not bring it back.
+  await openFixture(page, 'theme-colour-run.docx');
+  await expect(banner).toContainText('2 tracked changes');
+  await page.getByTestId('perspective-review').click();
+  await page.getByTestId('review-accept-all').click();
+  await expect(banner).toHaveCount(0);
+  await page.getByTestId('tracking-switch').click();
+  const name = page.getByTestId('tracking-name');
+  if (await name.isVisible()) { await name.fill('Reviewer One'); await name.press('Enter'); }
+  await expect(page.getByTestId('tracking-switch')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator(body).focus();
+  await page.evaluate(() => (window as unknown as Win).docx4jEditor.caretAt(2));
+  await page.keyboard.type('Z');
+  await expect(page.getByTestId('review-count')).toHaveText('1 change by 1 person');
+  await expect(banner).toHaveCount(0);
 });
 
 test('the tracking hint: shown once in Review with tracking off, never switching by itself; "Track my changes" goes through the name dialog', async ({ page }) => {

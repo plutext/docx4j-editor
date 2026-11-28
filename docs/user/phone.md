@@ -20,10 +20,10 @@ file's name and keeps the rest. **Tracking** and **Edit** leave the keyboard ope
 show the changes. In landscape with the keyboard open there is no top bar at all, so that a few lines of
 the document fit above the keyboard: type in portrait where you can.
 
-The menu is a sheet from the bottom of the screen: **Open…**, **New**, **Save** (see below), **Save As…**,
-**Download**, **Send a copy…** (where the browser can), **Share** and **Join…** for editing with others,
-**Find**, **All commands**, **Close**, and **Options**. A sheet closes with its ✕, with a swipe down its
-top, or with Escape on a keyboard.
+The menu is a sheet from the bottom of the screen: **Open…**, **New**, **Save** and **Save As…** (in Chrome on
+Android; see below), **Download**, **Send a copy…** (where the browser can), **Share** (with a document open, where
+a relay is set up) and **Join…** for editing with others, **Find**, **All commands**, **Close**, and **Options**.
+A sheet closes with its ✕, with a swipe down its top, or with Escape on a keyboard.
 
 ## The page
 
@@ -66,14 +66,19 @@ text is not edited on a phone; the full layout does that.
 
 ## Files on a phone
 
-- **Open…** uses the phone's own file picker (recent files, Downloads, Drive and the like).
-- **Save** writes the file you opened, in place, where the picker gave the editor a handle on it and
-  **Options → Save in place** is on. The first time, Chrome asks "Save changes to …?". Elsewhere the menu
-  offers **Download**, which saves a copy to Downloads.
-- **To send the document by mail or a chat**, download it, then share the downloaded file from Chrome's
-  download message or from the Files app. Chrome, Edge and Samsung Internet do not let a page send a Word
-  document, so **Send a copy…** is not in their menu; where a browser offers it, it hands a copy of the
-  saved document to the phone's share sheet directly. `docs/user/files.md` says more.
+- **Open…** uses the phone's own file picker (recent files, Downloads, Drive, iCloud Drive and the like).
+- **Save** and **Save As…** are in the menu only in Chrome on Android, which has the file pickers they need.
+  **Save** writes the file you opened, in place, when **Options → Save in place** is on; the first time,
+  Chrome asks "Save changes to …?". **Save As…** asks where to save.
+- **Download** saves a copy, in every browser. On an iPhone it is how you save: Safari puts the file in the
+  Files app, under Downloads (unless Safari's settings name another folder).
+- **Send a copy…** hands a copy of the saved document to the phone's share sheet, for mail, a chat or
+  AirDrop, where the browser allows it, as Safari on an iPhone does. Chrome, Edge and
+  Samsung Internet do not let a page send a Word document, so it is not in their menu: download the
+  document, then share it from Chrome's download message or from the Files app.
+- **Send a copy… needs the editor served over HTTPS.** Browsers allow sharing only from a secure page, so an
+  editor opened at an `http://` address, such as a server on your own network, never offers it.
+  `docs/user/files.md` says more.
 
 ## Not yet checked
 

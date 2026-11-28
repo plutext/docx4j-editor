@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Word-documenten bewerken in VS Code: de XML in beeld, inhoudsbesturingselementen en OpenDoPE-sjablonen, bijgehouden wijzigingen, en de bewerkingen van een agent onder zijn eigen naam.",
+  "untrusted": "In de beperkte modus kunnen documenten worden geopend en bewerkt, maar worden de macro's van een document niet aangeboden en wordt de begeleidende dienst van de agent niet gestart.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown als Word-document)",
+  "category": "docx4j editor",
+  "command.newDocument": "Nieuw Word-document",
+  "command.newDocument.short": "Word-document",
+  "command.commands": "Opdrachten",
+  "command.pasteText": "Plakken als tekst zonder opmaak",
+  "command.copyAgentAddress": "MCP-adres van de agent kopiëren",
+  "command.join": "Deelnemen aan een ruimte…",
+  "mcp.label": "docx4j editor: de begeleidende dienst van de agent",
+  "config.agent.name": "De naam van de agent: bij zijn bijgehouden wijzigingen, bij zijn opmerkingen en in de lijst met personen. De naam gaat in bij de volgende start van de begeleidende dienst, de volgende keer dat het venster wordt geopend.",
+  "command.ask.setKey": "Anthropic API-sleutel instellen…",
+  "command.ask.removeKey": "Anthropic API-sleutel verwijderen",
+  "config.ask.baseUrl": "Het adres waarnaar het vak Vragen verzendt met uw Anthropic API-sleutel: dat van Anthropic zelf (`https://api.anthropic.com`) als dit leeg is, anders een proxy die uw organisatie beheert. Alleen uw gebruikersinstellingen bevatten het, in het standaardprofiel, nooit die van een werkruimte: de sleutel gaat naar het adres dat hier staat."
+}

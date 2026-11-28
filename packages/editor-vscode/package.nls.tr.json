@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Word belgelerini VS Code’da düzenleyin: göz önünde XML, içerik denetimleri ve OpenDoPE şablonları, izlenen değişiklikler ve bir ajanın kendi adıyla yaptığı düzenlemeler.",
+  "untrusted": "Kısıtlı Mod’da belgeler açılır ve düzenlenebilir, ancak belgenin makroları sunulmaz ve ajanın yardımcı hizmeti başlatılmaz.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Word belgesi olarak Markdown)",
+  "category": "docx4j editor",
+  "command.newDocument": "Yeni Word Belgesi",
+  "command.newDocument.short": "Word Belgesi",
+  "command.commands": "Komutlar",
+  "command.pasteText": "Düz Metin Olarak Yapıştır",
+  "command.copyAgentAddress": "Ajanın MCP Adresini Kopyala",
+  "command.join": "Bir Odaya Katıl…",
+  "mcp.label": "docx4j editor: ajanın yardımcı hizmeti",
+  "config.agent.name": "Ajanın adı: izlenen değişikliklerinde, açıklamalarında ve Kişiler listesinde görünür. Yardımcı hizmetin bir sonraki başlatılışında, yani pencere bir sonraki açıldığında geçerli olur.",
+  "command.ask.setKey": "Anthropic API Anahtarını Ayarla…",
+  "command.ask.removeKey": "Anthropic API Anahtarını Kaldır",
+  "config.ask.baseUrl": "Sor kutusunun Anthropic API anahtarınızla istek gönderdiği adres: boşsa Anthropic’in kendi adresi (`https://api.anthropic.com`), değilse kuruluşunuzun işlettiği bir proxy. Bu ayarı yalnızca Varsayılan profildeki kullanıcı ayarlarınız tutar, hiçbir zaman bir çalışma alanının ayarları tutmaz: anahtar, bu ayar nereyi gösteriyorsa oraya gider."
+}

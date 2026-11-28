@@ -14,4 +14,4 @@ export interface PackageNotice {
 }
 export function describePackage(dir: string): PackageNotice | undefined;
 export function withoutLicenceText(packages: Array<PackageNotice | undefined>): PackageNotice[];
-export function noticesText(what: string, packages: Array<PackageNotice | undefined>, licenceFile?: string): string;
+export function noticesText(what: string, packages: Array<PackageNotice | undefined>, licenceFile?: string, more?: string[]): string;

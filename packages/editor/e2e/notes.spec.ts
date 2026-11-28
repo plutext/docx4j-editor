@@ -85,6 +85,30 @@ test('a header typed at one boundary shows at every boundary that uses the part;
   expect(diffs.every((d) => d.reason === 'bytes')).toBe(true);
 });
 
+test('in a footer, Ctrl+K opens the link dialog over the footer and Ctrl+B bolds the footer alone: its keys go on past the page boundary, which the body view leaves alone (ED-014 section 4.4)', async ({ page }) => {
+  await openFixture(page, 'odd-even-first-page.docx');
+  const footerAbove = page.locator('.docx-editor .page-boundary').first().locator('.boundary-footer .ProseMirror');
+  await footerAbove.click();
+  await expect(page.locator('.page-column')).toHaveClass(/editing-header/);
+  // The body's own document, which a footer's key must never change (a marker's boundary sits inside a body paragraph's DOM).
+  const bodyDoc = (): Promise<string> => page.evaluate(() => JSON.stringify((window as unknown as { docx4jEditor: { state: { doc: { toJSON(): unknown } } } }).docx4jEditor.state.doc.toJSON()));
+  const before = await bodyDoc();
+  // The footer's first paragraph selected through its surface: a key straight after a click races the selection report.
+  await footerAbove.evaluate((el) => {
+    type S = { view: { dom: Element }; state: { doc: { child(i: number): { nodeSize: number } } }; caretAt(a: number, b?: number): void };
+    const s = [...(window as unknown as { docx4jSurfaces: Map<string, S> }).docx4jSurfaces.values()].find((x) => x.view.dom === el)!;
+    s.caretAt(1, s.state.doc.child(0).nodeSize - 1);
+  });
+  await page.keyboard.press('Control+b');
+  await expect(footerAbove.locator('strong')).toContainText('My footer');
+  expect(await bodyDoc()).toBe(before);
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('link-address').fill('https://docx4j.org/');
+  await page.getByRole('button', { name: 'OK' }).click();
+  await expect(footerAbove.locator('a.link')).toHaveAttribute('data-target', 'https://docx4j.org/');
+  expect(await bodyDoc()).toBe(before);
+});
+
 test('Insert footnote from the toolbar in a document with no notes: the caret lands in the new note, the reference is numbered, the panel appears; Delete from the panel removes both; undo brings them back; the download opens with the note', async ({ page }) => {
   await openFixture(page, 'HelloWordOnline.docx');
   await expect(page.getByTestId('footnotes-panel')).toHaveCount(0);

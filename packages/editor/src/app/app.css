@@ -73,6 +73,16 @@ body {
   margin-block: 0 1.5rem;
 }
 
+/* A page waiting for its host's open (VS Code, ED-014 section 4.1): nothing to drop on, so no dashed edge. */
+.drop-zone.opening {
+  border-color: transparent;
+  background: transparent;
+}
+
+.drop-zone.opening p {
+  margin-block: 0;
+}
+
 button {
   font: inherit;
 }

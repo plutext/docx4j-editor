@@ -1,0 +1,203 @@
+{
+  "name": "docx4j-editor",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.3.0",
+  "private": true,
+  "publisher": "plutext",
+  "preview": true,
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/plutext/docx4j-editor.git",
+    "directory": "packages/editor-vscode"
+  },
+  "homepage": "https://github.com/plutext/docx4j-editor/blob/main/packages/editor-vscode/README.md",
+  "bugs": {
+    "url": "https://github.com/plutext/docx4j-editor/issues"
+  },
+  "engines": {
+    "vscode": "^1.105.0",
+    "node": ">=22"
+  },
+  "categories": [
+    "Other",
+    "AI"
+  ],
+  "keywords": [
+    "docx",
+    "Word",
+    "OOXML",
+    "tracked changes",
+    "content controls",
+    "OpenDoPE",
+    "MCP",
+    "agent"
+  ],
+  "icon": "media/icon.png",
+  "files": [
+    "dist/",
+    "app/",
+    "companion/",
+    "l10n/",
+    "package.nls*.json",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.txt",
+    "media/icon.png"
+  ],
+  "main": "./dist/extension.js",
+  "l10n": "./l10n",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%untrusted%"
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "docx4j.editor",
+        "displayName": "%editor.word%",
+        "selector": [
+          {
+            "filenamePattern": "*.docx"
+          },
+          {
+            "filenamePattern": "*.dotx"
+          },
+          {
+            "filenamePattern": "*.docm"
+          },
+          {
+            "filenamePattern": "*.dotm"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "docx4j.markdown",
+        "displayName": "%editor.markdown%",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "docx4j.newDocument",
+        "title": "%command.newDocument%",
+        "shortTitle": "%command.newDocument.short%",
+        "category": "%category%"
+      },
+      {
+        "command": "docx4j.commands",
+        "title": "%command.commands%",
+        "category": "%category%"
+      },
+      {
+        "command": "docx4j.pasteText",
+        "title": "%command.pasteText%",
+        "category": "%category%"
+      },
+      {
+        "command": "docx4j.copyAgentAddress",
+        "title": "%command.copyAgentAddress%",
+        "category": "%category%"
+      },
+      {
+        "command": "docx4j.join",
+        "title": "%command.join%",
+        "category": "%category%"
+      },
+      {
+        "command": "docx4j.ask.setKey",
+        "title": "%command.ask.setKey%",
+        "category": "%category%"
+      },
+      {
+        "command": "docx4j.ask.removeKey",
+        "title": "%command.ask.removeKey%",
+        "category": "%category%"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "docx4j.companion",
+        "label": "%mcp.label%"
+      }
+    ],
+    "configuration": {
+      "title": "%displayName%",
+      "properties": {
+        "docx4j.agent.name": {
+          "type": "string",
+          "default": "Agent",
+          "markdownDescription": "%config.agent.name%"
+        },
+        "docx4j.ask.baseUrl": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "markdownDescription": "%config.ask.baseUrl%"
+        }
+      }
+    },
+    "menus": {
+      "file/newFile": [
+        {
+          "command": "docx4j.newDocument"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "docx4j.commands",
+          "when": "activeCustomEditorId == 'docx4j.editor'"
+        },
+        {
+          "command": "docx4j.pasteText",
+          "when": "activeCustomEditorId == 'docx4j.editor'"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "docx4j.pasteText",
+          "when": "webviewId == 'docx4j.editor'",
+          "group": "5_cutcopypaste@4"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "docx4j.commands",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "activeCustomEditorId == 'docx4j.editor'"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs && node scripts/copy-app.mjs && node scripts/bundle-companion.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:vscode": "playwright test",
+    "package": "node scripts/package.mjs",
+    "locales:check": "node scripts/l10n.mjs --check",
+    "screenshot": "playwright test -c playwright.screenshot.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^20.19.43",
+    "@types/vscode": "1.105.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "4.1.1",
+    "esbuild": "^0.28.2",
+    "fflate": "^0.8.2"
+  }
+}

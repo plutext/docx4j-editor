@@ -5,10 +5,13 @@
 // own key (bring your own, kept in local storage, entered in Options and written nowhere else)
 // and a base URL an organisation proxy (E4) or the suites' test double can take. One request
 // per question, no streaming, no server-side fallback to another model: the user chose the
-// model and is shown the request; a refusal is shown as such with its explanation. The
-// organisation-proxy and companion routes are E4's and reuse this interface.
-import Anthropic from '@anthropic-ai/sdk';
+// model and is shown the request; a refusal is shown as such with its explanation. The call
+// itself is `ask-send.ts`'s, which VS Code's extension makes too (ED-014 section 4.6, P45): in
+// VS Code the page holds no key and sends through the host (`host().ask()`).
+import { modelKey, PAGE_COMMANDS, type AskAnswerData, type AskFailureData, type HostModelData } from './host-protocol.js';
 import type { AskRequest } from './ask-context.js';
+import { sendAnthropic, failureOf, isCancelled } from './ask-send.js';
+import { AskFailure, host } from './host.js';
 import { t } from './i18n.js';
 
 export const OPTION_ASK_KEY = 'docx4j-editor.ask.key';
@@ -28,13 +31,60 @@ export const ASK_MODELS: readonly AskModel[] = [
   { id: 'claude-fable-5-1', label: 'Claude Fable 5.1' },
 ];
 
-export interface AskAnswer {
-  text: string;
-  model: string;
-  stopReason: string | null;
-  /** The refusal's category and explanation when the model declined (`stop_reason: 'refusal'`). */
-  refusal?: { category: string | null; explanation: string | null };
-  usage?: { input: number; output: number };
+export type AskAnswer = AskAnswerData;
+
+/** `ask.model` keeps a VS Code model as `vscode:<vendor>/<id>`, and an Anthropic model by its bare id (P46). */
+export const VSCODE_MODEL = 'vscode:';
+
+/** The VS Code model a kept choice names, when it is offered. */
+export function vscodeModelOf(choice: string, models: readonly HostModelData[]): HostModelData | undefined {
+  if (!choice.startsWith(VSCODE_MODEL)) return undefined;
+  const key = choice.slice(VSCODE_MODEL.length);
+  return models.find((m) => modelKey(m) === key);
+}
+
+/**
+ * The model the Ask box offers first in VS Code (P46): the one kept in `ask.model` while it is offered; else the first VS
+ * Code model whose family or id names Claude, since the prompt and the fenced forms were written for Claude (ED-003 section
+ * 7.5); else the first listed. Undefined when nothing is offered: the chat route alone.
+ */
+export function chooseModel(kept: string, models: readonly HostModelData[], keyStored: boolean): string | undefined {
+  const offered = [...models.map((m) => `${VSCODE_MODEL}${modelKey(m)}`), ...(keyStored ? ASK_MODELS.map((m) => m.id) : [])];
+  if (kept !== '' && offered.includes(kept)) return kept;
+  const claude = models.find((m) => /claude/i.test(m.family) || /claude/i.test(m.id));
+  if (claude) return `${VSCODE_MODEL}${modelKey(claude)}`;
+  return offered[0];
+}
+
+/** Where a request goes: VS Code's model or the key, through the host; the page's own call in a browser; a chat by copy and paste. */
+export type AskRoute = 'vscode' | 'key' | 'browser' | 'chat';
+
+/** The model the box has chosen, the route a request to it takes, and its name for the request and the sending line. */
+export interface AskChoice {
+  /** The select's value: `vscode:<vendor>/<id>` or an Anthropic model's id; undefined when nothing is offered. */
+  model: string | undefined;
+  /** The VS Code model chosen, when the choice is one. */
+  vsModel: HostModelData | undefined;
+  route: AskRoute;
+  label: string;
+}
+
+/**
+ * The choice. In VS Code, over VS Code's models as listed: `chooseModel`'s model, sent to VS Code's model or with the key the
+ * extension holds, else the chat. In a browser (`models` unused, `keyStored` the key in Options): kept or the first model,
+ * sent with the key or by the chat.
+ */
+export function askChoice(inVsCode: boolean, kept: string, models: readonly HostModelData[], keyStored: boolean): AskChoice {
+  const labelOf = (id: string): string => ASK_MODELS.find((m) => m.id === id)?.label ?? id;
+  if (!inVsCode) {
+    const model = kept || ASK_MODELS[0]!.id;
+    return { model, vsModel: undefined, route: keyStored ? 'browser' : 'chat', label: labelOf(model) };
+  }
+  const model = chooseModel(kept, models, keyStored);
+  if (model === undefined) return { model, vsModel: undefined, route: 'chat', label: '' };
+  const vsModel = vscodeModelOf(model, models);
+  if (vsModel) return { model, vsModel, route: 'vscode', label: vsModel.name };
+  return { model, vsModel, route: keyStored && ASK_MODELS.some((m) => m.id === model) ? 'key' : 'chat', label: labelOf(model) };
 }
 
 export interface ProviderOptions {
@@ -55,28 +105,7 @@ export const anthropicProvider: AskProvider = {
   id: 'anthropic',
   name: 'Anthropic API',
   models: ASK_MODELS,
-  async send(request, options) {
-    const client = new Anthropic({
-      apiKey: options.apiKey,
-      ...(options.baseURL ? { baseURL: options.baseURL } : {}),
-      dangerouslyAllowBrowser: true,   // the key is the user's, in the user's own page (ED-001 section 11 item 5)
-      maxRetries: 1,
-    });
-    const response = await client.messages.create({
-      model: request.model,
-      max_tokens: request.maxTokens,
-      system: request.system,
-      messages: [{ role: 'user', content: request.prompt }],
-      thinking: { type: 'adaptive' },
-    }, { ...(options.signal ? { signal: options.signal } : {}) });
-    const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('\n');
-    const answer: AskAnswer = { text, model: response.model, stopReason: response.stop_reason, usage: { input: response.usage.input_tokens, output: response.usage.output_tokens } };
-    if (response.stop_reason === 'refusal') {
-      const details = response.stop_details;
-      answer.refusal = { category: details?.category ?? null, explanation: details?.explanation ?? null };
-    }
-    return answer;
-  },
+  send: (request, options) => sendAnthropic(request, { ...options, browser: true }),
 };
 
 export function askOption(key: string): string {
@@ -87,11 +116,43 @@ export function setAskOption(key: string, value: string): void {
   try { if (value === '') localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* ignore */ }
 }
 
-/** A message for the status line from a failed request. */
+/** The command that sets the key in VS Code (ED-014 section 4.6). */
+const SET_KEY = 'docx4j.ask.setKey';
+
+/**
+ * The name the palette shows for the command that sets the key (ED-014 section 4.7, P49): VS Code's, in VS Code's language,
+ * which is the one a person can find there whatever the page's; English where the host names none.
+ */
+export function setKeyCommand(): string {
+  return host().commandName(SET_KEY) ?? PAGE_COMMANDS[SET_KEY]!;
+}
+
+/**
+ * A failure's words, the same in either host for each kind (ED-014 section 4.6), but where they name the place the key is
+ * set: Options in a browser, the command in VS Code, whose Options cannot show the key (section 9.23 finding 1).
+ */
+export function describeFailure(f: AskFailureData): string {
+  switch (f.kind) {
+    case 'key': return host().has('askOptions') ? t('ask.error.key') : t('ask.error.key.vscode', { command: setKeyCommand() });
+    case 'rateLimit': return t('ask.error.rateLimit');
+    case 'connection': return t('ask.error.connection', { error: f.message });
+    case 'api': return t('ask.error.api', { status: f.status ?? '', error: f.message });
+    case 'noPermissions': return t('ask.error.noPermissions');
+    case 'blocked': return t('ask.error.blocked', { error: f.message });
+    case 'notFound': return t('ask.error.notFound');
+    case 'tooLong': return t('ask.error.tooLong', { tokens: f.tokens ?? 0, limit: f.limit ?? 0 });
+    case 'noKey': return t('ask.error.noKey', { command: setKeyCommand() });
+    case 'other': return f.message;
+  }
+}
+
+/** A message for the status line from a failed request: an SDK error in a browser, the host's failure in VS Code. */
 export function describeError(e: unknown): string {
-  if (e instanceof Anthropic.AuthenticationError) return t('ask.error.key');
-  if (e instanceof Anthropic.RateLimitError) return t('ask.error.rateLimit');
-  if (e instanceof Anthropic.APIConnectionError) return t('ask.error.connection', { error: e.message });
-  if (e instanceof Anthropic.APIError) return t('ask.error.api', { status: e.status ?? '', error: e.message });
-  return (e as Error).message ?? String(e);
+  if (e instanceof AskFailure) return describeFailure(e.failure);
+  return describeFailure(failureOf(e));
+}
+
+/** Whether a failed request was the person's Cancel: nothing to say. */
+export function wasCancelled(e: unknown): boolean {
+  return isCancelled(e);
 }

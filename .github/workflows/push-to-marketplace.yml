@@ -1,0 +1,79 @@
+name: Publish the VS Code extension
+
+# On a published GitHub release, attaches the extension's VSIX to the release and publishes it to the Visual Studio
+# Marketplace and to Open VSX, both through trusted publishing: no token is stored (RELEASING.md). The VSIX is the one
+# test.yml made and checked for the release's commit, never packaged again here, so the file conveyed is built from this
+# public commit's source (ED-014 section 4.7). The release tag must match the version the packages share. Each registry
+# skips a version it already has, and each publish runs whether or not the other succeeded, so a run that failed part
+# way through can be re-run. The registries' trusted publishers name this file: renaming it breaks publishing until
+# both are changed to match.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write # both registries' trusted publishing
+  contents: write # the VSIX attached to the release
+  actions: read # test.yml's artifact for the release's commit
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # vsce as the lockfile pins it, and the package script's check.
+      - run: npm ci --no-audit --no-fund
+
+      - name: The release tag matches the extension's version
+        run: |
+          VERSION="$(node -p "require('./packages/editor/package.json').version")"
+          V="$(node -p "require('./packages/editor-vscode/package.json').version")"
+          if [ "$V" != "$VERSION" ]; then echo "::error::packages/editor-vscode is at $V, packages/editor at $VERSION"; exit 1; fi
+          echo "tag: $TAG, version: $VERSION"
+          if [ "${TAG#v}" != "$VERSION" ]; then echo "::error::release tag $TAG does not match version $VERSION"; exit 1; fi
+
+      # The Node 22 job of a test.yml run that passed for this commit (the push to main, or the tag's own) keeps it as the
+      # artifact `vsix`.
+      - name: The VSIX test.yml made for this commit
+        id: vsix
+        run: |
+          RUN="$(gh run list --workflow test.yml --commit "$GITHUB_SHA" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          if [ -z "$RUN" ]; then echo "::error::no test.yml run has passed for $GITHUB_SHA: wait for one, then re-run this job"; exit 1; fi
+          echo "test.yml run $RUN"
+          gh run download "$RUN" --name vsix --dir "$RUNNER_TEMP/vsix"
+          ls -l "$RUNNER_TEMP/vsix"
+          FILE="$RUNNER_TEMP/vsix/docx4j-editor-${TAG#v}.vsix"
+          if [ "$(ls "$RUNNER_TEMP/vsix" | wc -l)" != 1 ] || [ ! -f "$FILE" ]; then echo "::error::the artifact is not docx4j-editor-${TAG#v}.vsix alone"; exit 1; fi
+          node packages/editor-vscode/scripts/package.mjs --check "$FILE"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Attach the VSIX to the release
+        env:
+          FILE: ${{ steps.vsix.outputs.file }}
+        run: gh release upload "$TAG" "$FILE" --clobber
+
+      # The policy on the publisher's Trusted Publishing page: owner plutext, repository docx4j-editor, this workflow,
+      # no environment.
+      - name: Publish to the Visual Studio Marketplace
+        if: ${{ !cancelled() && steps.vsix.outcome == 'success' }}
+        env:
+          FILE: ${{ steps.vsix.outputs.file }}
+        run: npx vsce publish --oidc --skip-duplicate --packagePath "$FILE"
+
+      # The trusted publisher registered for the plutext namespace at open-vsx.org/user-settings/trusted-publishers.
+      # ovsx is run, not installed: it is EPL-2.0, a tool here and never a dependency of any package.
+      - name: Publish to Open VSX
+        if: ${{ !cancelled() && steps.vsix.outcome == 'success' }}
+        env:
+          FILE: ${{ steps.vsix.outputs.file }}
+        run: npx --yes ovsx@1.4.0 publish --trusted-publishing --skip-duplicate --packagePath "$FILE"

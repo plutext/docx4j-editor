@@ -9,6 +9,14 @@ import { scrollBlockToTop } from '../scroll.js';
 
 export const linksKey = new PluginKey('docx4j-links');
 
+/** How an external address is opened: a new tab by default; the application sets its host's (ED-014 section 4.1), so the view knows nothing of it. */
+let opener = (url: string): void => { window.open(url, '_blank', 'noopener'); };
+
+/** Set how Ctrl+click opens an external address. */
+export function setLinkOpener(open: (url: string) => void): void {
+  opener = open;
+}
+
 export function linksPlugin(_session: EditorDocument): Plugin {
   return new Plugin({
     key: linksKey,
@@ -19,7 +27,7 @@ export function linksPlugin(_session: EditorDocument): Plugin {
         const link = linkAt(state);
         if (!link) return false;
         if (link.address) {
-          window.open(link.address, '_blank', 'noopener');
+          opener(link.address);
           return true;
         }
         if (link.anchor) {

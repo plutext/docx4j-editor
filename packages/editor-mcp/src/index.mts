@@ -9,3 +9,4 @@ export { existingUnderRoots, writableUnderRoots, PathError } from './paths.mjs';
 export { createMcpServer } from './tools.mjs';
 export { ToolError, type ErrorCode } from './errors.mjs';
 export type { ToolHost, ToolRoom } from './kit.mjs';
+export type { FromCompanion, ToCompanion } from './channel.mjs';

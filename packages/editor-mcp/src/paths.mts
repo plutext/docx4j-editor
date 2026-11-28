@@ -25,7 +25,7 @@ function inside(parent: string, child: string): boolean {
  * too); a relative path is taken from the first root. Refused otherwise, naming the path.
  */
 export async function existingUnderRoots(roots: readonly string[], path: string): Promise<string> {
-  if (roots.length === 0) throw new PathError('the companion was started with no --root, so it opens nothing', 'outside_root');
+  if (roots.length === 0) throw new PathError('the companion has no root folder (none named with --root, or a VS Code window with no folder open), so it opens nothing', 'outside_root');
   const realRoots = await Promise.all(roots.map((r) => realpath(r)));
   let target: string;
   try {
@@ -43,7 +43,7 @@ export async function existingUnderRoots(roots: readonly string[], path: string)
  * it exists, for the caller's overwrite check. A relative path is taken from the first root.
  */
 export async function writableUnderRoots(roots: readonly string[], path: string): Promise<{ path: string; exists: boolean }> {
-  if (roots.length === 0) throw new PathError('the companion was started with no --root, so it writes nothing', 'outside_root');
+  if (roots.length === 0) throw new PathError('the companion has no root folder (none named with --root, or a VS Code window with no folder open), so it writes nothing', 'outside_root');
   const realRoots = await Promise.all(roots.map((r) => realpath(r)));
   const given = isAbsolute(path) ? path : resolve(realRoots[0]!, path);
   let exists = false;

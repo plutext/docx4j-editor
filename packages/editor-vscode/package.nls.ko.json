@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "VS Code에서 Word 문서를 편집합니다. XML을 보면서 콘텐츠 컨트롤과 OpenDoPE 서식 파일, 추적된 변경 내용을 다루고, 에이전트의 편집은 에이전트 자신의 이름으로 남습니다.",
+  "untrusted": "제한 모드에서도 문서를 열고 편집할 수 있지만, 문서의 매크로는 제공되지 않고 에이전트의 컴패니언은 시작되지 않습니다.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Word 문서로 연 Markdown)",
+  "category": "docx4j editor",
+  "command.newDocument": "새 Word 문서",
+  "command.newDocument.short": "Word 문서",
+  "command.commands": "명령",
+  "command.pasteText": "일반 텍스트로 붙여넣기",
+  "command.copyAgentAddress": "에이전트의 MCP 주소 복사",
+  "command.join": "방에 참여…",
+  "mcp.label": "docx4j editor: 에이전트의 컴패니언",
+  "config.agent.name": "에이전트의 이름입니다. 에이전트의 추적된 변경 내용과 메모, 참가자 목록에 표시됩니다. 컴패니언이 다음에 시작될 때, 즉 다음에 창을 열 때 적용됩니다.",
+  "command.ask.setKey": "Anthropic API 키 설정…",
+  "command.ask.removeKey": "Anthropic API 키 제거",
+  "config.ask.baseUrl": "질문 상자가 Anthropic API 키와 함께 요청을 보내는 주소입니다. 비어 있으면 Anthropic 자체 주소(`https://api.anthropic.com`)이고, 그렇지 않으면 조직에서 운영하는 프록시입니다. 이 값은 기본 프로필의 사용자 설정에만 저장되며 작업 영역 설정에는 저장되지 않습니다. 키는 여기에 지정된 곳으로 전송됩니다."
+}

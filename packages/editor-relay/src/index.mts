@@ -42,6 +42,13 @@ export interface RelayOptions {
    * `[::1]`, at any port. `['*']`: any. A connection without an `Origin` (not a browser) is allowed.
    */
   origins?: readonly string[];
+  /**
+   * More `Origin` headers allowed, on top of whichever rule applies: the local rule, or `origins`
+   * (ED-014 section 4.5, P38). A VS Code webview's page has an origin of its own
+   * (`vscode-webview://…`), which the companion that VS Code starts names here. `allowOrigin` adds one
+   * while the relay runs.
+   */
+  allowOrigins?: readonly string[];
   /** Milliseconds between a change and its write to disk (Hocuspocus's debounce; default 2000). */
   debounce?: number;
   /** The clock, for the idle rule's tests. */
@@ -88,6 +95,8 @@ export interface Relay {
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer): void;
   /** An in-process peer's connection to a room, under the room's token; `create` makes the room when the relay does not hold it. */
   openRoom(room: string, token: string, options?: { create?: boolean }): Promise<DirectConnection>;
+  /** One more `Origin` allowed from now on, as `allowOrigins` names one (ED-014 section 4.5). */
+  allowOrigin(origin: string): void;
   /** Delete the rooms idle for longer than `idleDays` that nobody has open; their ids. */
   sweep(): Promise<string[]>;
   /** Close every connection, write every open room, stop the server. */
@@ -100,6 +109,7 @@ export function createRelay(options: RelayOptions = {}): Relay {
   const idleDays = options.idleDays ?? 30;
   const now = options.now ?? Date.now;
   const origins = options.origins;
+  const allowed = new Set(options.allowOrigins ?? []);
   /** Each open room's size in bytes, an upper bound kept as updates arrive. */
   const sizes = new Map<string, number>();
   /** When each open room last changed: what a write records as `touched` (a write at unload with no change is not a touch). */
@@ -152,6 +162,7 @@ export function createRelay(options: RelayOptions = {}): Relay {
 
   function originAllowed(origin: string | undefined): boolean {
     if (origin === undefined) return true;
+    if (allowed.has(origin)) return true;
     if (origins?.includes('*')) return true;
     if (origins) return origins.includes(origin);
     try {
@@ -267,6 +278,7 @@ export function createRelay(options: RelayOptions = {}): Relay {
       await authorise(room, token, options.create === true);
       return hocuspocus.openDirectConnection(room);
     },
+    allowOrigin(origin: string): void { allowed.add(origin); },
     sweep,
     async destroy(): Promise<void> {
       clearInterval(sweeper);

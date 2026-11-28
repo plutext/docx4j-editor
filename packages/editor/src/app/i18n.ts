@@ -131,9 +131,16 @@ function browserLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : navigator.language ? [navigator.language] : [];
 }
 
-/** The language at start: the override, else the best match of the browser's, else English. */
+/** The host's display language, given at start (VS Code's `env.language`, ED-014 P27): preferred to the browser's own. */
+let hostLanguage: string | undefined;
+
+function preferredLanguages(): readonly string[] {
+  return hostLanguage ? [hostLanguage, ...browserLanguages()] : browserLanguages();
+}
+
+/** The language at start: the override, else the best match of the host's and then the browser's, else English. */
 export function initialLanguage(): string {
-  return languageOption() ?? matchLanguage(browserLanguages(), availableLanguages()) ?? SOURCE_LANGUAGE;
+  return languageOption() ?? matchLanguage(preferredLanguages(), availableLanguages()) ?? SOURCE_LANGUAGE;
 }
 
 /** English until `languageReady` has loaded the language the start asks for. */
@@ -161,15 +168,17 @@ export async function setLanguage(tag: string | null): Promise<void> {
   try {
     if (tag === null) localStorage.removeItem(LANGUAGE_KEY); else localStorage.setItem(LANGUAGE_KEY, tag);
   } catch { /* storage may be unavailable */ }
-  const next = tag !== null && shipped(tag) ? tag : matchLanguage(browserLanguages(), availableLanguages()) ?? SOURCE_LANGUAGE;
+  const next = tag !== null && shipped(tag) ? tag : matchLanguage(preferredLanguages(), availableLanguages()) ?? SOURCE_LANGUAGE;
   await switchTo(next);
 }
 
 /**
  * The language at start, loaded (main.tsx awaits it before the first render, so a French browser
- * never sees the English interface first). A file that fails to load leaves English.
+ * never sees the English interface first). A file that fails to load leaves English. `host` is the
+ * host's display language, if it has one (VS Code's, ED-014 P27).
  */
-export async function languageReady(): Promise<void> {
+export async function languageReady(host?: string): Promise<void> {
+  hostLanguage = host;
   const want = initialLanguage();
   current = SOURCE_LANGUAGE;
   try { await switchTo(want); } catch { /* English stays */ }

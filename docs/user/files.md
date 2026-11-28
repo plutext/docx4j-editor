@@ -29,7 +29,9 @@ that the browser no longer counts the tap, the editor says the copy is ready and
 Chrome, Edge and Samsung Internet do not send Word documents this way: they share only PDFs, text,
 pictures, sound and video. **Send a copy…** is not offered in them. On an Android phone, use **Download**,
 then share the file from Chrome's download message or from the Files app. Other browsers offer it where
-they say they can send a Word document (Safari on an iPhone is still to be checked).
+they say they can send a Word document (Safari on an iPhone does), and only on a page
+served over HTTPS: browsers allow sharing from a secure page alone, so an editor at an `http://` address,
+such as a server on your own network, never offers it.
 
 ## Saving as Flat OPC XML
 

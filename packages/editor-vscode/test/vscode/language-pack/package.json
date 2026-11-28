@@ -1,0 +1,33 @@
+{
+  "name": "docx4j-editor-test-language-fr",
+  "displayName": "docx4j editor: the suite's stand-in French language pack (never published)",
+  "description": "A language pack for French with an empty translation of VS Code: VS Code runs in French, its own words English, so the extension's French drafts are read (ED-014 section 9.25 item 3).",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "plutext-test",
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Language Packs"
+  ],
+  "files": [
+    "translations/"
+  ],
+  "contributes": {
+    "localizations": [
+      {
+        "languageId": "fr",
+        "languageName": "French",
+        "localizedLanguageName": "français",
+        "translations": [
+          {
+            "id": "vscode",
+            "path": "./translations/main.i18n.json"
+          }
+        ]
+      }
+    ]
+  }
+}

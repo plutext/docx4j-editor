@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Chỉnh sửa tài liệu Word trong VS Code: XML luôn trong tầm mắt, điều khiển nội dung và mẫu OpenDoPE, thay đổi được theo dõi, và các chỉnh sửa của tác nhân dưới tên riêng của nó.",
+  "untrusted": "Ở Chế độ hạn chế, tài liệu vẫn mở và chỉnh sửa được, nhưng macro của tài liệu không được đề xuất và chương trình đồng hành của tác nhân không được khởi động.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown dưới dạng tài liệu Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "Tài liệu Word mới",
+  "command.newDocument.short": "Tài liệu Word",
+  "command.commands": "Lệnh",
+  "command.pasteText": "Dán dưới dạng văn bản thuần",
+  "command.copyAgentAddress": "Sao chép địa chỉ MCP của tác nhân",
+  "command.join": "Tham gia phòng…",
+  "mcp.label": "docx4j editor: chương trình đồng hành của tác nhân",
+  "config.agent.name": "Tên của tác nhân: hiển thị trên các thay đổi được theo dõi, các chú thích của nó và trong danh sách những người trong phòng. Có hiệu lực ở lần khởi động tiếp theo của chương trình đồng hành, tức là lần tới cửa sổ được mở.",
+  "command.ask.setKey": "Đặt khóa Anthropic API…",
+  "command.ask.removeKey": "Xóa khóa Anthropic API",
+  "config.ask.baseUrl": "Địa chỉ mà ô Hỏi gửi tới cùng khóa Anthropic API của bạn: địa chỉ của chính Anthropic (`https://api.anthropic.com`) khi để trống, nếu không thì là một proxy do tổ chức của bạn vận hành. Chỉ thiết đặt người dùng của bạn trong hồ sơ Mặc định mới chứa giá trị này, không bao giờ là thiết đặt của không gian làm việc: khóa sẽ được gửi tới bất cứ nơi nào thiết đặt này chỉ định."
+}

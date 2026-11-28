@@ -5,15 +5,14 @@
 // state; React holds what is open on screen (the perspective, the panels, a dialog).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Y from 'yjs';
-import { EditorDocument, SelfCheckError, documentStyles, documentFonts, preservedCount, APPLICATION_NAME, IMPORT_ORIGIN, ROOM_ORIGIN, AGENTS_ORIGIN, staleBoundControls, applyBoundRefresh, stateFor, compareWithBytes, type StyleEntry, type StaleBoundControls, type TextComparison, type SaveFormat } from '@docx4j/editor-model';
+import { EditorDocument, SelfCheckError, ProjectionVersionError, documentStyles, documentFonts, APPLICATION_NAME, IMPORT_ORIGIN, ROOM_ORIGIN, AGENTS_ORIGIN, staleBoundControls, applyBoundRefresh, agentLog, stateFor, compareWithBytes, type StyleEntry, type StaleBoundControls, type TextComparison, type SaveFormat, type EditStore } from '@docx4j/editor-model';
 import { refreshXhtmlControls } from '../view/xhtmlbind.js';
 import { refreshBoundAtCaret } from '../view/boundrefresh.js';
 import { setSpellcheck, setKeyboardSuggestions } from '../view/proofing.js';
 import { refreshPictureControls } from '../view/picturebind.js';
 import { refreshFragmentControls } from '../view/fragmentbind.js';
-import type { IndexeddbPersistence } from 'y-indexeddb';
 import { DocxEditorView, type DocxEditorViewOptions } from '../view/DocxEditorView.js';
-import { keepPlace, restorePlace, type KeptPlace } from '../view/place.js';
+import { isKeptPlace, keepPlace, restorePlace, type KeptPlace } from '../view/place.js';
 import { surfaces, type EditorSurface } from '../view/surface.js';
 import { Toolbar } from './Toolbar.js';
 import { Palette } from './Palette.js';
@@ -35,34 +34,38 @@ import './presets.js';
 import { DeveloperPanel, Splitter } from './panels/DeveloperPanel.js';
 import { FootnotesPanel } from './panels/FootnotesPanel.js';
 import { CommentsMargin, commentColours } from './panels/CommentsMargin.js';
-import { reasonOf, hasFileSystemAccess, pickFile, fromFile, handleOfDrop, readHandle, saveAsDownload, saveAs, saveInPlace, changedSince, download, canShareFiles, sendCopy, sendFile, type SendOutcome, diagnosisName, isMarkdownName, formatOfName, OPEN_ACCEPT, type OpenedFile, type SourceFile } from './files.js';
+import { reasonOf, hasFileSystemAccess, pickFile, fromFile, handleOfDrop, readHandle, saveAsDownload, saveAs, saveInPlace, changedSince, exportChecked, canShareFiles, sendCopy, sendFile, type SendOutcome, diagnosisName, isMarkdownName, formatOfName, OPEN_ACCEPT, type OpenedFile, type SourceFile } from './files.js';
 import type { EditorView } from 'prosemirror-view';
 import { formatAsMarkdown } from '../view/markdown.js';
 import { printDocument, prepareNotes, isPrintKey } from './print.js';
 import { fitTableColumns, fitTablesIn } from '../view/tablefit.js';
 import { isInTable } from 'prosemirror-tables';
 import { describePaste, describeDropped, markdownOfferOf } from '../view/paste.js';
-import { newSessionId, persistedStore, putSession, deleteSession, setCurrentSessionId, recoverable, holdSession, sessionInUse, type SessionRecord } from './persistence.js';
+import { newSessionId, persistedStore, memoryStore, putSession, deleteSession, setCurrentSessionId, recoverable, holdSession, sessionInUse, type SessionRecord, type StoreKeeper } from './persistence.js';
 import { OPTION_COMPANION, companionUrl, effectiveCompanion, probeCompanionInfo, companionRelay, inviteAgent, paginateWith, type CompanionInfo } from './companion.js';
-import { RoomConnection, RoomRefusedError, newRoomLink, parseRoomLink, relayAddress, relayHost, relayOption, roomLinkUrl, setRelayOption, type RoomLink, type RoomStatus } from './room.js';
+import { RoomConnection, RoomRefusedError, isLoopbackRelay, newRoomLink, parseRoomLink, relayAddress, relayHost, relayOption, roomLinkUrl, setRelayOption, type RoomLink, type RoomStatus } from './room.js';
 import { ShareDialog, JoinDialog } from './RoomDialogs.js';
 import { PeopleList } from './PeopleList.js';
 import { localUser, nameOption, setNameOption } from './presence.js';
 import { setPresence } from '../view/presence.js';
 import { decorationsKey } from '../view/plugins/decorations.js';
 import { loadEmbeddedFonts, unloadEmbeddedFonts, describeEmbeddedFonts } from './fonts.js';
-import { browserMacros, putBrowserMacro, deleteBrowserMacro, documentMacros, putDocumentMacro, deleteDocumentMacro, documentMacrosEnabled, isTrusted, trust, runMacro, describeRun, type MacroHome } from './macros.js';
+import { browserMacros, putBrowserMacro, deleteBrowserMacro, documentMacros, putDocumentMacro, deleteDocumentMacro, documentMacrosBuilt, documentMacrosEnabled, isTrusted, trust, runMacro, describeRun, type MacroHome } from './macros.js';
 import { SaveMacroDialog, MacroSourceDialog } from './MacroDialogs.js';
 import type { Macro, LockRefusal } from '@docx4j/editor-model';
 import type { PaletteMacro, PaletteAction } from './Palette.js';
-import { chooseMarkupView, listedChanges, snippetOf, stepChange } from './review.js';
+import { chooseMarkupView, snippetOf, stepChange } from './review.js';
+import { useBannerCounts } from './banner.js';
 import { askOption, setAskOption, OPTION_ASK_KEY, OPTION_ASK_BASE_URL } from './ask.js';
+import { useHostKeyStored } from './panels/AskBox.js';
 import { t, tNodes, useT, useLanguage, directionOf, availableLanguages, languageOption, setLanguage, nativeName, isDraft, matchLanguage, SOURCE_LANGUAGE } from './i18n.js';
 import { diagnosticSummary, perspectiveLabel, tabLabel, untrackedStatus, lockRefusedStatus } from './labels.js';
 import { FindBar, type FindNavigation } from './FindBar.js';
 import { watchFile } from './watch.js';
 import { placeMenuPane, placeOpenMenus } from './menus.js';
 import { putHandover, takeHandover, parseHandoverHash } from './persistence.js';
+import { host, pageAddress, type HostPage, type HostBackup, type HostOpenHow, type HostResume, type JoinSource } from './host.js';
+import { isPlainPasteKey, pastePlainText, plainPasteTarget } from './plaintext.js';
 
 interface Open {
   id: string;
@@ -77,7 +80,8 @@ interface Open {
    * (`changedSince`; ED-013 section 9). `bytes` stays the file as opened, the recovery record's base.
    */
   disk?: Uint8Array;
-  persistence: IndexeddbPersistence;
+  /** y-indexeddb's persistence, where the host leaves recovery to the application; else nothing (ED-014 P8). */
+  persistence: StoreKeeper;
   /** Lets go of the session: until then the other tabs read it as open here, and offer nothing (ED-011 section 3.6). */
   release: () => void;
   bytes: Uint8Array;
@@ -125,10 +129,13 @@ function within<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-/** The page's own address without its fragment, which a room link replaces. */
-function siteAddress(): string {
-  return location.href.replace(/#.*$/, '');
+/** The session's record for recovery, where the host leaves recovery to the application (ED-014 P8: VS Code's hot exit holds it). */
+async function keepRecord(record: SessionRecord): Promise<void> {
+  if (host().has('recovery')) await putSession(record);
 }
+
+/** How long a resumed backup waits for its room's relay before it opens out of the room (ED-014 section 4.1). */
+const RESUME_ROOM_WAIT = 5_000;
 
 const OPTION_APP = 'docx4j-editor.writeApplication';
 const OPTION_SAVE_IN_PLACE = 'docx4j-editor.saveInPlace';
@@ -153,7 +160,7 @@ function browserMatch(): string {
 /** The sample document, under the site's base (`public/samples`, written by scripts/build-sample.mjs). */
 const SAMPLE_PATH = 'samples/hello-world.docx';
 
-/** The site's base path, as Vite's `--base` set it (`/docx4j-editor/` for the demo on GitHub Pages). */
+/** The site's base path, as Vite's `--base` set it: `./` in the build (ED-014 P21), resolved against the page's base; `/docx4j-editor/` for the demo on GitHub Pages. */
 function siteBase(): string {
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
   return env?.['BASE_URL'] ?? '/';
@@ -172,7 +179,7 @@ export function App() {
    * with the disk version's text compared to this document's (section 3.4; `comparison` undefined while it
    * runs, `null` when the disk version could not be read).
    */
-  const [diskChange, setDiskChange] = useState<{ session: EditorDocument; lastModified: number; comparison?: TextComparison | null } | null>(null);
+  const [diskChange, setDiskChange] = useState<{ session: EditorDocument; lastModified: number; bytes?: Uint8Array; comparison?: TextComparison | null } | null>(null);
   /** The confirmation before a reload that discards unsaved changes (ED-011 section 9.9). */
   const [discardAsk, setDiscardAsk] = useState(false);
   /** The question before Close discards unsaved changes, when `askBeforeClose` is on. */
@@ -208,8 +215,14 @@ export function App() {
   const [companion, setCompanion] = useState<string>(() => companionUrl());
   const [companionInfo, setCompanionInfo] = useState<CompanionInfo | null>(null);
   const companionTools = companionInfo?.tools ?? null;
-  /** The companion probed: the option, else this page's own `/companion` (a page the companion serves; ED-005 section 12.28). */
-  const companionBase = effectiveCompanion(companion);
+  /**
+   * The companion as the host starts it for the page (VS Code, ED-014 section 4.5, P38): the agent's name from the boot, its
+   * address and its relay's once the host has said them. The page makes no probe there: its policy names no HTTP port.
+   */
+  const hostAgent = host().companion();
+  const [hostCompanion, setHostCompanion] = useState<{ url: string; relay: string } | null>(null);
+  /** The companion probed: the option, else this page's own `/companion` (a page the companion serves; ED-005 section 12.28); none where the host keeps the options. */
+  const companionBase = host().has('companionOptions') ? effectiveCompanion(companion) : '';
   const [repaginating, setRepaginating] = useState(false);
   const [mountEl, setMountEl] = useState<HTMLDivElement | null>(null);
   // The page's zoom (ED-005 section 12.110): CSS `zoom` over the page and its margin, never the chrome; kept per browser.
@@ -246,6 +259,8 @@ export function App() {
   const [macroSave, setMacroSave] = useState<string | null>(null);
   const [macroShow, setMacroShow] = useState<Macro | null>(null);
   const [askKey, setAskKey] = useState(() => askOption(OPTION_ASK_KEY));
+  /** In VS Code, whether its SecretStorage holds the Ask box's key: the boot's `askKey`, kept current by the host (P45). */
+  const askKeyStored = useHostKeyStored();
   const [askBaseUrl, setAskBaseUrl] = useState(() => askOption(OPTION_ASK_BASE_URL));
   /** Co-editing (ED-004 section 4): the relay option, the room's status, the link to show, a link waiting for the user's yes, the Join dialog. */
   const [relay, setRelay] = useState<string>(() => relayOption());
@@ -258,7 +273,8 @@ export function App() {
   const [userName, setUserName] = useState<string>(() => nameOption());
   /** The layout (ED-013 section 3.1): Automatic follows the device (a touch-only one with a short side of 600 px or less is a phone), Compact or Full overrides it; kept per browser. */
   const [layoutChoice, setLayoutChoice] = useState<LayoutChoice>(() => loadLayout());
-  const compact = useCompact(layoutChoice);
+  // A host without the choice is never a phone (ED-014 section 3.8: a webview in VS Code).
+  const compact = useCompact(host().has('layoutChoice') ? layoutChoice : 'full');
   /** Where the keyboard covers the page (iOS Safari), the bars are moved into the visible part. */
   useViewportGaps(compact);
   /** The bar above the keyboard (ED-013 section 3.4): while the keyboard is open and an editing surface has the focus. */
@@ -285,6 +301,13 @@ export function App() {
   const [threadSheet, setThreadSheet] = useState<string[] | null>(null);
   /** The comments as the margin lists them, for the compact layout, which draws no margin: the bar's count and the thread sheet. */
   const compactThreads = useCommentThreads(compact && editor && open ? editor : null, compact && open ? open.session : null);
+  /**
+   * The document whose banner has nothing left to say (Jason, 2026-11-28): the banner is the open's, its counts following the
+   * document, and once nothing it reported is left it goes for that document; a tracked change typed after does not bring it
+   * back over the page. Until then its counts follow the document, counted again a moment after each change (`app/banner.ts`).
+   */
+  const [bannerSpent, setBannerSpent] = useState<EditorDocument | null>(null);
+  const bannerCounts = useBannerCounts(editor && open && editor.session === open.session && bannerSpent !== open.session ? editor : null);
   // Another document, or none: no sheet stays open over it.
   useEffect(() => { setReviewSheet(false); setThreadSheet(null); setCommentSheet(null); }, [open?.session]);
   /** The compact layout's file input, for Open where the browser has no pickers. */
@@ -361,6 +384,16 @@ export function App() {
   const savingRef = useRef(false);
   /** True while the table fit of a Markdown open writes: the import's work, not an edit, so Reload stays on offer (ED-011 section 3.8). */
   const importFitRef = useRef(false);
+  /** The host's export last given (ED-014 section 4.1): whether it changed the file, for the status line once the host has written it. */
+  const lastExportRef = useRef<{ session: EditorDocument; changed: boolean } | null>(null);
+  /** A new document the host asked for in place (an `open` with empty bytes): its name, while the page size is asked. */
+  const newInPlaceRef = useRef<string | null>(null);
+  /** A backup being resumed, until its document is open: a backup asked meanwhile answers with it (section 9.4 item 2). */
+  const resumingRef = useRef<HostBackup | null>(null);
+  // Once a document is open, it is the one backed up: after the render, so `openRef` already holds it.
+  useEffect(() => { if (open) resumingRef.current = null; }, [open]);
+  /** An open the host asked for failed: the waiting page says so, where it said "Opening…". */
+  const [hostOpenFailed, setHostOpenFailed] = useState(false);
 
   /** The connection for a room, its status followed in the application bar and a refusal said in the status line. */
   const connectRoom = useCallback((store: EditorDocument['store'], link: RoomLink, create = false): RoomConnection => new RoomConnection(store, link, {
@@ -380,7 +413,7 @@ export function App() {
     cur.room?.close();
     cur.persistence.destroy();
     unloadEmbeddedFonts(cur.session);
-    if (clean) await deleteSession(cur.id);
+    if (clean && host().has('recovery')) await deleteSession(cur.id);
     cur.release();   // after the delete: a tab checking now must not find the record of a session closed clean
     setOpen(undefined);
     setFindOpen(false);
@@ -389,13 +422,17 @@ export function App() {
     firstEditRef.current = null;
   }, []);
 
-  /** Open bytes into a fresh session, or recover a persisted one. */
-  const openBytes = useCallback(async (file: OpenedFile, recover?: SessionRecord, onDisk = false) => {
+  /**
+   * Open bytes into a fresh session, or recover a persisted one. `kept` is a store made already, with its room where it has
+   * one (a host's backup resumed, ED-014 section 4.1); without it the store is IndexedDB's where the host leaves recovery to
+   * the application, else in memory.
+   */
+  const openBytes = useCallback(async (file: OpenedFile, recover?: SessionRecord, onDisk = false, kept?: { store: EditStore; persistence: StoreKeeper; room?: RoomConnection }) => {
     performance.mark('docx4j:open');
     await closeCurrent(false);
     const id = recover?.id ?? newSessionId();
     const release = holdSession(id);
-    const { store, persistence } = await persistedStore(id);
+    const { store, persistence } = kept ?? (host().has('recovery') ? await persistedStore(id) : memoryStore());
     performance.mark('docx4j:store');
     // A session recovered in a room: a joiner's bytes are the room's base file, opened over its store as a join (ED-004 section 4.5).
     let session: EditorDocument;
@@ -412,11 +449,11 @@ export function App() {
     performance.mark('docx4j:styles');
     // Recovery rejoins the room; offline, the local copy opens and the provider syncs when it can.
     // A sharer's recovery may remake the room (the idle rule may have deleted it); a joiner's never makes one.
-    const room = recover?.room ? connectRoom(store, recover.room, !recover.joined) : undefined;
+    const room = kept ? kept.room : recover?.room ? connectRoom(store, recover.room, !recover.joined) : undefined;
     const next: Open = { id, name: file.name, session, styles, fonts, lastModified: file.lastModified, persistence, release, bytes: file.bytes, ...(file.handle ? { handle: file.handle, disk: file.bytes } : {}), ...(file.source ? { source: file.source } : {}), ...(room ? { room } : {}), ...(recover?.joined ? { joined: true } : {}), ...(onDisk ? { onDisk: true as const } : {}) };
-    setCurrentSessionId(id);
+    if (host().has('recovery')) setCurrentSessionId(id);
     firstEditRef.current = recover?.dirty ? recover.firstEdit ?? null : null;
-    await putSession(recordOf(next, recover?.dirty ?? false, firstEditRef.current));
+    await keepRecord(recordOf(next, recover?.dirty ?? false, firstEditRef.current));
     setDirty(recover?.dirty ?? false);
     setOpen(next);
     setDefaultTabStop(String(session.defaultTabStop / 20));
@@ -441,11 +478,17 @@ export function App() {
     }).catch(() => { /* a document whose custom XML parts do not parse suggests nothing */ });
   }, [closeCurrent, writeApp, connectRoom]);
 
-  /** A Markdown file as a new document made from it, in the kept page size, its tables fit once drawn; returns what its reading dropped, described. */
-  const openMarkdown = useCallback(async (file: OpenedFile, onDisk = false): Promise<string> => {
+  /**
+   * A Markdown file as a new document made from it, in the kept page size, its tables fit once drawn; returns what its reading
+   * dropped, described. A file a host opened (`hosted`) is the document's source though it has no handle, since the host
+   * watches it (ED-014 section 3.3), and the conversion is the base a host's backup is resumed over.
+   */
+  const openMarkdown = useCallback(async (file: OpenedFile, onDisk = false, hosted = false): Promise<string> => {
     const made = await documentFromMarkdown(file, pageSize, margins);
+    const converted: OpenedFile = hosted && !made.file.source ? { ...made.file, source: { name: file.name, lastModified: file.lastModified } } : made.file;
     fitAfterOpen.current = true;
-    await openBytes(made.file, undefined, onDisk);
+    await openBytes(converted, undefined, onDisk);
+    if (hosted) host().base(converted.bytes);
     return describeDropped(made.dropped);
   }, [openBytes, pageSize, margins]);
 
@@ -503,8 +546,12 @@ export function App() {
   const toggleRef = useRef<() => void>(() => undefined);
   // New Comment (ED-005 section 7.5), Word's Ctrl+Alt+M, through the same path.
   const commentRef = useRef<() => void>(() => undefined);
+  // Insert Link, Word's Ctrl+K: the toolbar's dialog, which the toolbar binds while it is shown (ED-014 section 4.4).
+  const linkRef = useRef<() => void>(() => undefined);
+  const bindLink = useCallback((open: (() => void) | null) => { linkRef.current = open ?? (() => undefined); }, []);
   const shortcuts = useMemo(() => ({
-    'Mod-Shift-p': () => setPalette(true),
+    // VS Code's command palette in its webview (ED-014 section 3.4): the application's is reached through a host message.
+    ...(host().has('appKeys') ? { 'Mod-Shift-p': () => setPalette(true) } : {}),
     'Mod-f': () => openFind(false),
     'Mod-h': () => openFind(true),
     'F3': () => findNext(false),
@@ -513,6 +560,9 @@ export function App() {
     'Alt-PageUp': () => stepRef.current(-1),
     'Mod-Shift-e': () => toggleRef.current(),
     'Mod-Alt-m': () => commentRef.current(),
+    // A surface's own, not a `window` listener's: the extension's key gate then keeps it from VS Code, whose Ctrl+K starts a
+    // chord the dialog's next key would end (ED-014 section 4.4), and a header's reaches it too.
+    'Mod-k': () => linkRef.current(),
   }), [openFind, findNext]);
 
   // The view lives as long as the session and its mount point: not remade when only the record around it changes (Share adds the room).
@@ -582,8 +632,10 @@ export function App() {
         setStatus((s) => (s === saved ? '' : s));
       }
       setDirty(true);
+      // VS Code's dirty state and its backups follow (ED-014 section 3.4), with the same exclusions as the page's own.
+      host().changed();
       clearTimeout(timer);
-      timer = setTimeout(() => { void putSession(recordOf(open, true, firstEditRef.current)); }, 300);
+      timer = setTimeout(() => { void keepRecord(recordOf(open, true, firstEditRef.current)); }, 300);
     };
     store.ydoc.on('afterTransaction', onTransaction);
     return () => { store.ydoc.off('afterTransaction', onTransaction); clearTimeout(timer); };
@@ -620,6 +672,8 @@ export function App() {
   }, [open, companionBase, repaginating, editor]);
 
   useEffect(() => {
+    // VS Code asks about a dirty editor itself (ED-014 section 3.8).
+    if (!host().has('unloadGuard')) return;
     const guard = (e: BeforeUnloadEvent): void => { if (dirty) e.preventDefault(); };
     window.addEventListener('beforeunload', guard);
     return () => window.removeEventListener('beforeunload', guard);
@@ -636,7 +690,7 @@ export function App() {
   }, [perspective, lang, open]);
 
   // Recovery on the first visit after a crash or a closed tab.
-  useEffect(() => { void recoverable().then((r) => { if (r) setRecovery(r); }); }, []);
+  useEffect(() => { if (host().has('recovery')) void recoverable().then((r) => { if (r) setRecovery(r); }); }, []);
 
   /** An offer another tab has overtaken, as tabs a browser restores after a crash all make it: said, and gone, with the session left alone. */
   const overtaken = useCallback(async (record: SessionRecord): Promise<boolean> => {
@@ -683,12 +737,13 @@ export function App() {
     const change = diskChange;
     const cur = openRef.current;
     const handle = cur && watchedHandle(cur);
-    if (!cur || !handle || cur.session !== change.session) return;
+    // The bytes the host posted (VS Code, ED-014 section 3.3), else the watched handle's.
+    if (!cur || (!change.bytes && !handle) || cur.session !== change.session) return;
     let current = true;
     void (async () => {
       let comparison: TextComparison | null = null;
       try {
-        const file = await readHandle(handle);
+        const file: OpenedFile = change.bytes ? { name: cur.source?.name ?? cur.name, bytes: change.bytes, lastModified: change.lastModified } : await readHandle(handle!);
         // A Markdown source is compared as it would open, its conversion; the text does not depend on the page size.
         comparison = await compareWithBytes(change.session, cur.source ? (await documentFromMarkdown(file, undefined)).file.bytes : file.bytes);
       } catch { comparison = null; }
@@ -714,7 +769,7 @@ export function App() {
       const id = newSessionId();
       const kept = editorRef.current && keepPlace(editorRef.current);
       await putHandover({ id, name: file.name, bytes: file.bytes, lastModified: file.lastModified, handle, ...(cur.source ? { markdown: true as const } : {}), ...(kept ? { place: kept } : {}) });
-      tab.location.href = `${siteAddress()}#disk=${id}`;
+      tab.location.href = `${pageAddress()}#disk=${id}`;
     } catch (e) { tab.close(); setStatus(t('status.open.failedFile', { name: cur.name, error: (e as Error).message })); }
   }, []);
 
@@ -722,21 +777,33 @@ export function App() {
    * Reload (ED-011 section 3.5): the handle's file as it is now, a Markdown source converted again, the old session's
    * record gone. With local edits only through the confirmation (`discarding`, section 9.9): they go with the record.
    */
-  const reloadFromDisk = useCallback(async (discarding = false) => {
+  /**
+   * The document opened again from `read`'s file, the caret's place kept: Reload's, and a host's revert (ED-014 section 4.1),
+   * whose bytes are the file's or, for a Markdown source, the source's, converted again.
+   */
+  const reloadWithImpl = async (read: () => Promise<OpenedFile>, discarding: boolean, hosted = false): Promise<void> => {
     const cur = openRef.current;
-    const handle = cur && watchedHandle(cur);
-    if (!cur || !handle) return;
+    if (!cur) return;
     setDiskChange(null);
     try {
-      const file = await readHandle(handle);
+      const file = await read();
       const kept = editorRef.current && keepPlace(editorRef.current);
       await closeCurrent(true);
       placeRef.current = kept;
       const reloaded = t(discarding ? 'status.reloaded.discarded' : 'status.reloaded', { name: file.name });
-      if (cur.source) setStatus(withDropped(reloaded, await openMarkdown(file)));
+      if (cur.source) setStatus(withDropped(reloaded, await openMarkdown(file, false, hosted)));
       else { await openBytes(file); setStatus((s) => `${reloaded} ${s}`.trim()); }
     } catch (e) { placeRef.current = null; setStatus(t('status.open.failedFile', { name: cur.name, error: (e as Error).message })); }
-  }, [closeCurrent, openBytes, openMarkdown]);
+  };
+  const reloadWithRef = useRef(reloadWithImpl);
+  reloadWithRef.current = reloadWithImpl;
+  const reloadWith = useCallback((read: () => Promise<OpenedFile>, discarding: boolean, hosted = false): Promise<void> => reloadWithRef.current(read, discarding, hosted), []);
+  const reloadFromDisk = useCallback(async (discarding = false) => {
+    const cur = openRef.current;
+    const handle = cur && watchedHandle(cur);
+    if (!cur || !handle) return;
+    await reloadWith(async () => readHandle(handle), discarding);
+  }, [reloadWith]);
 
   /**
    * The new tab's side (ED-011 section 3.6): the record taken by the `#disk` hash, the handle tried once
@@ -745,7 +812,7 @@ export function App() {
    * names it. The hash is cleared first: a reload of this tab opens nothing.
    */
   const openHandover = useCallback(async (id: string) => {
-    history.replaceState(null, '', siteAddress());
+    history.replaceState(null, '', pageAddress());
     try {
       const record = await takeHandover(id);
       if (!record) return;
@@ -766,6 +833,7 @@ export function App() {
   }, [openBytes, openMarkdown]);
 
   useEffect(() => {
+    if (!host().has('diskInTab')) return;
     const offer = (): void => { const id = parseHandoverHash(location.hash); if (id) void openHandover(id); };
     offer();
     window.addEventListener('hashchange', offer);
@@ -777,6 +845,7 @@ export function App() {
   // whenever the address's hash changes: a link pasted into a tab already on the editor changes only
   // the hash, and the page does not reload (Jason's by-hand run of E4.f, ED-005 section 12.29).
   useEffect(() => {
+    if (!host().has('join')) return;
     const offer = (): void => { const link = parseRoomLink(location.hash); if (link) setJoinOffer(link); };
     offer();
     window.addEventListener('hashchange', offer);
@@ -827,76 +896,103 @@ export function App() {
     await cur.session.share(cur.bytes, cur.name);
     const next: Open = { ...cur, room };
     setOpen(next);
-    await putSession(recordOf(next, dirtyRef.current, firstEditRef.current));
+    await keepRecord(recordOf(next, dirtyRef.current, firstEditRef.current));
     return link;
   }, [connectRoom]);
 
-  /** Share (section 4.4): a new room on the relay, the link shown. */
+  /**
+   * Share (section 4.4): a new room on the relay, the link shown. Where the host starts the companion (VS Code, P41), into the
+   * companion's relay, started first; the link is on the companion's address and works on this computer only.
+   */
   const doShare = useCallback(async () => {
     let address: string;
-    try { address = relayAddress(relay); } catch { setStatus(t('status.share.badRelay', { relay })); return; }
+    if (hostAgent) {
+      try { address = (await hostAgent.start()).relay; } catch (e) { setStatus(t('status.share.failed', { error: (e as Error).message })); return; }
+    } else {
+      try { address = relayAddress(relay); } catch { setStatus(t('status.share.badRelay', { relay })); return; }
+    }
     if (address === '') return;
     const link = await shareInto(address);
     if (!link) return;
-    setShareUrl(roomLinkUrl(siteAddress(), link));
+    setShareUrl(roomLinkUrl(host().siteAddress(), link));
     setStatus(t('status.share.shared'));
-  }, [relay, shareInto]);
+  }, [relay, shareInto, hostAgent]);
 
-  /** The companion's relay, where its agent can be invited (ED-005 section 8.2, the browser first). */
-  const agentRelay = companionInfo?.agent ? companionRelay(companionBase, companionInfo) : undefined;
+  /** Whether Share is offered: into the companion's relay where the host starts it, else where the relay option names one. */
+  const shareOffered = hostAgent !== undefined || (host().has('companionOptions') && relay.trim() !== '');
+  /** The agent's name: the host's (from the boot), else the probe's. */
+  const agentName = hostAgent?.agent ?? companionInfo?.agent;
+  /** The companion's relay, where its agent can be invited (ED-005 section 8.2, the browser first); the host's once it has said it. */
+  const agentRelay = hostAgent ? hostCompanion?.relay : companionInfo?.agent ? companionRelay(companionBase, companionInfo) : undefined;
 
   /**
    * Invite an agent (ED-005 section 8.2): a document not yet shared is shared into the companion's
-   * relay, and the companion is told the room (`POST <companion>/rooms`); the agent joins as a peer
-   * and its edits arrive as its tracked changes. A room on another relay cannot take it.
+   * relay, and the companion is told the room (`POST <companion>/rooms`, or the host's `invite` where the host started it,
+   * ED-014 section 4.5); the agent joins as a peer and its edits arrive as its tracked changes. A room on another relay
+   * cannot take it.
    */
   const doInvite = useCallback(async () => {
     const cur = openRef.current;
-    const agent = companionInfo?.agent;
-    if (!cur || !agent || !agentRelay) return;
+    const agent = agentName;
+    if (!cur || !agent) return;
+    let relayAt = agentRelay;
+    if (hostAgent) {
+      setStatus(t('status.invite.inviting', { agent }));
+      try { relayAt = (await hostAgent.start()).relay; } catch (e) { setStatus(t('status.invite.failed', { agent, error: (e as Error).message })); return; }
+    }
+    if (!relayAt) return;
     let link: RoomLink | undefined;
     if (cur.room) {
-      if (cur.room.link.relay !== agentRelay) { setStatus(t('status.invite.otherRelay', { agent })); return; }
+      if (cur.room.link.relay !== relayAt) { setStatus(t('status.invite.otherRelay', { agent })); return; }
       link = cur.room.link;
     } else {
-      link = await shareInto(agentRelay);
+      link = await shareInto(relayAt);
       if (!link) return;
     }
     setStatus(t('status.invite.inviting', { agent }));
     try {
-      await inviteAgent(companionBase, link);
+      if (hostAgent) await hostAgent.invite(link);
+      else await inviteAgent(companionBase, link);
       setStatus(t('status.invite.invited', { agent }));
     } catch (e) {
       setStatus(t('status.invite.failed', { agent, error: (e as Error).message }));
     }
-  }, [companionInfo, companionBase, agentRelay, shareInto]);
+  }, [agentName, companionBase, agentRelay, shareInto, hostAgent]);
+
+  // The host told where the session's room is (VS Code: a rename's hand-over carries a room's store, ED-014 P42).
+  const roomRelay = open?.room?.link.relay;
+  useEffect(() => { host().room(roomRelay); }, [roomRelay]);
 
   /** Join (section 4.4): connect, wait for the room, open its base file over the synced store; a room not ready opens nothing. */
-  const joinRoom = useCallback(async (link: RoomLink) => {
+  const joinRoom = useCallback(async (link: RoomLink, given = ''): Promise<boolean> => {
     setJoinOffer(null);
     setJoinDialog(false);
-    if (location.hash !== '') history.replaceState(null, '', siteAddress());
+    if (location.hash !== '') history.replaceState(null, '', pageAddress());
     await closeCurrent(false);
     const id = `room:${link.room}`;
     const release = holdSession(id);
-    const { store, persistence } = await persistedStore(id);
+    const { store, persistence } = host().has('recovery') ? await persistedStore(id) : memoryStore();
     setStatus(t('status.join.connecting', { host: relayHost(link.relay) }));
     const room = connectRoom(store, link);
-    const giveUp = (message?: string): void => { room.close(); persistence.destroy(); release(); if (message) setStatus(message); };
+    // A refusal has been said in the status line already, by the connection's status; the host hears that the open failed.
+    const giveUp = (message?: string): void => { room.close(); persistence.destroy(); release(); if (message) setStatus(message); host().status(message ?? t('app.openFailed')); };
     // A local copy of the room (joined before) opens at once; the provider syncs when it can.
     if (store.room.get('base') === undefined) {
-      try { await within(room.synced, 20_000); } catch (e) { giveUp(e instanceof RoomRefusedError ? undefined : t('status.join.failed', { error: (e as Error).message })); return; }
+      try { await within(room.synced, 20_000); } catch (e) { giveUp(e instanceof RoomRefusedError ? undefined : t('status.join.failed', { error: (e as Error).message })); return false; }
     }
     const base = store.room.get('base') as Uint8Array | undefined;
-    if (!base) { giveUp(t('status.join.empty')); return; }
-    const name = (store.room.get('name') as string | undefined) ?? 'shared.docx';
+    if (!base) { giveUp(t('status.join.empty')); return false; }
+    // The name the host gave the editor (VS Code's untitled Room.docx, which it cannot rename), else the room's own.
+    const name = given.trim() !== '' ? given : (store.room.get('name') as string | undefined) ?? 'shared.docx';
     let session: EditorDocument;
-    try { session = await EditorDocument.open(base, { store, mode: 'join', writeApplication: writeApp, repair: 'word' }); } catch (e) { giveUp(t('status.join.failed', { error: (e as Error).message })); return; }
+    try { session = await EditorDocument.open(base, { store, mode: 'join', writeApplication: writeApp, repair: 'word' }); } catch (e) { giveUp(t('status.join.failed', { error: (e as Error).message })); return false; }
     const [styles, fonts] = await Promise.all([documentStyles(session), documentFonts(session)]);
     const next: Open = { id, name, session, styles, fonts, lastModified: 0, persistence, release, bytes: base, room, joined: true };
-    setCurrentSessionId(id);
+    if (host().has('recovery')) setCurrentSessionId(id);
     firstEditRef.current = null;
-    await putSession(recordOf(next, false));
+    await keepRecord(recordOf(next, false));
+    // The room's base file is what a host's backup of this editor is resumed over (ED-014 section 4.1).
+    host().base(base);
     setDirty(false);
     setOpen(next);
     setDefaultTabStop(String(session.defaultTabStop / 20));
@@ -909,6 +1005,7 @@ export function App() {
     void loadEmbeddedFonts(session);
     setDocMacros(null);
     void session.template.load({ engine: false }).then(async () => { setDocMacros({ session, list: await documentMacros(session) }); }).catch(() => { /* nothing to suggest */ });
+    return true;
   }, [closeCurrent, connectRoom, writeApp]);
 
   const switchPerspective = (id: PerspectiveId): void => { setPerspective(id); savePerspective(id); setPanelState(loadPanel(id)); };
@@ -1005,10 +1102,10 @@ export function App() {
   // The three views of the tracked changes, in the palette beside the macros: a view is not an edit, so not a registry command (ED-005 section 6.4).
   const paletteActions: PaletteAction[] = editor ? [
     ...(['all', 'accepted', 'original'] as const).map((v) => ({ id: `view:${v}`, label: t('palette.view', { name: t(`review.view.${v}`) }), run: () => chooseMarkupView(editor, v, setStatus) })),
-    { id: 'print', label: t('palette.print'), run: () => void doPrint() },
-    // Save As's picker offers Flat OPC too; without a picker this is the one way to it, as a download.
-    { id: 'save-flat-opc', label: t('palette.saveFlatOpc'), run: () => void doSaveAs({ flatOpc: true }) },
-    ...(canSend && open ? [{ id: 'send-copy', label: t('app.sendCopy'), run: () => void doSendCopy() }] : []),
+    ...(host().has('print') ? [{ id: 'print', label: t('palette.print'), run: () => void doPrint() }] : []),
+    // Save As's picker offers Flat OPC too; without a picker this is the one way to it, as a download. VS Code's Save As names it (ED-014 P4).
+    ...(host().has('saveAs') || host().has('download') ? [{ id: 'save-flat-opc', label: t('palette.saveFlatOpc'), run: () => void doSaveAs({ flatOpc: true }) }] : []),
+    ...(canSend && open && host().has('sendCopy') ? [{ id: 'send-copy', label: t('app.sendCopy'), run: () => void doSendCopy() }] : []),
     { id: 'zoom-in', label: t('zoom.in'), run: () => setZoom(stepZoom(zoom, 1)) },
     { id: 'zoom-out', label: t('zoom.out'), run: () => setZoom(stepZoom(zoom, -1)) },
     { id: 'zoom-reset', label: t('zoom.reset'), run: () => setZoom(1) },
@@ -1098,6 +1195,8 @@ export function App() {
   // Ctrl+P (⌘P) prints the document from anywhere in the application, a code editor included, so it is
   // taken in the capture phase; with no document open the key is the browser's (proposal 2).
   useEffect(() => {
+    // In VS Code Ctrl+P is Quick Open, and a webview cannot print (ED-014 section 3.4, S0's item 7).
+    if (!host().has('appKeys')) return;
     const onKey = (e: KeyboardEvent): void => {
       if (!isPrintKey(e) || !editorRef.current) return;
       e.preventDefault();
@@ -1109,13 +1208,19 @@ export function App() {
   }, [doPrint]);
 
   // Outside the editor (a panel, the toolbar) the same shortcut opens the palette; inside it the
-  // view's keymap handles it first, after ProseMirror has read any pending selection change.
+  // view's keymap handles it, after ProseMirror has read any pending selection change. In the capture phase, so that in
+  // VS Code a key acted on here is prevented before the key gate decides (a `window` listener in the bubble phase runs after
+  // VS Code's own, ED-014 section 4.4); it acts on no key a surface, Monaco or a field handles, so the order changes nothing.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      if (e.defaultPrevented) return;
       const inSurface = e.target instanceof Element && e.target.closest('.ProseMirror') !== null;
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+        // VS Code's command palette in its webview (ED-014 section 3.4): this branch alone, find and the rest stay.
+        // Inside a surface its own keymap handles it: prevented here, the surface would never see it.
+        if (!host().has('appKeys') || inSurface) return;
         e.preventDefault();
-        if (!inSurface) setPalette((p) => !p);   // inside a surface its own keymap handled it
+        setPalette((p) => !p);
         return;
       }
       // Find: inside a surface its keymap handled it; inside Monaco (the console, the XML panes) Monaco's own find opens (ED-005 section 3.8).
@@ -1137,9 +1242,28 @@ export function App() {
         stepRef.current(e.key === 'PageDown' ? 1 : -1);
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [openFind, findNext]);
+
+  // Paste as plain text in VS Code (ED-014 P34), whose host page cancels the browser's own Ctrl+Shift+V: the page reads the
+  // clipboard and pastes the text where the key was pressed. Prevented, so the key gate keeps it from VS Code. Where nothing
+  // can take a paste (a button, a read-only pane) the key is left alone and the clipboard unread (section 9.15 item 1).
+  useEffect(() => {
+    if (!host().has('clipboardText')) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.defaultPrevented || !isPlainPasteKey(e)) return;
+      const paste = plainPasteTarget(document.activeElement, () => activeRef.current ?? editorRef.current);
+      if (!paste) return;
+      e.preventDefault();
+      void navigator.clipboard.readText().then(
+        (text) => { paste(text); },
+        (err: unknown) => setStatus(t('paste.failed', { error: (err as Error)?.message ?? String(err) })),
+      );
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
 
   /** A file opened: a Markdown file as a new document made from it, in the kept page size, what its reading dropped said. */
   const openFile = useCallback(async (file: OpenedFile) => {
@@ -1166,21 +1290,37 @@ export function App() {
   const startNew = useCallback(async (size?: PageSizePaper) => {
     const chosen = size ?? pageSize;
     if (!chosen) { setAskPageSize(true); return; }
-    try { await openBytes(await newDocument(chosen, margins)); } catch (e) { setStatus(t('status.new.failed', { error: (e as Error).message })); }
-  }, [openBytes, pageSize, margins]);
+    try { await host().openDocument(await newDocument(chosen, margins)); } catch (e) { setStatus(t('status.new.failed', { error: (e as Error).message })); }
+  }, [pageSize, margins]);
+
+  /** A new document the host asked for in place (ED-014 section 4.1): made as New makes one, its bytes posted as the base. */
+  const makeInPlace = useCallback(async (size: PageSizePaper, name: string) => {
+    newInPlaceRef.current = null;
+    try {
+      const made = await newDocument(size, margins);
+      await openBytes({ ...made, name });
+      host().base(made.bytes);
+    } catch (e) {
+      const text = t('status.new.failed', { error: (e as Error).message });
+      setStatus(text);
+      setHostOpenFailed(true);
+      host().status(text);
+    }
+  }, [openBytes, margins]);
 
   const choosePageSize = (size: PageSizePaper): void => {
     setPageSize(size);
     savePageSize(size);
     setAskPageSize(false);
-    void startNew(size);
+    if (newInPlaceRef.current !== null) void makeInPlace(size, newInPlaceRef.current);
+    else void startNew(size);
   };
 
   const fromTemplate = useCallback(async () => {
     const cur = openRef.current;
     if (!cur) return;
-    try { await openBytes(await documentFromTemplate(cur.session)); } catch (e) { setStatus(t('status.fromTemplate.failed', { error: (e as Error).message })); }
-  }, [openBytes]);
+    try { await host().openDocument(await documentFromTemplate(cur.session)); } catch (e) { setStatus(t('status.fromTemplate.failed', { error: (e as Error).message })); }
+  }, []);
 
   const onPick = useCallback(async () => {
     try {
@@ -1208,7 +1348,7 @@ export function App() {
   const afterSave = useCallback(async (cur: Open, changed: boolean, how: 'download' | 'saveAs' | 'inPlace') => {
     setDirty(false);
     firstEditRef.current = null;
-    await putSession(recordOf(cur, false));
+    await keepRecord(recordOf(cur, false));
     // An edit made while the record was written has already made the document unsaved again: no "Saved" to show.
     if (firstEditRef.current !== null) return;
     const message = t(changed ? 'status.saved.changed' : 'status.saved.unchanged', { how: t(`status.saved.how.${how}`) });
@@ -1284,12 +1424,220 @@ export function App() {
     finally { savingRef.current = false; }
   }, [open, inPlace, doDownload, handleOutcome]);
 
+  // ---- The page half of the host seam (ED-014 section 4.1): what a host asks of the application. Built afresh each render
+  // and reached through a ref, so the one attachment made at mount always reaches this render's routes.
+
+  /** How long after a rejoin the room's people are taken as known: its awareness comes with the sync, or just after. */
+  const AGENT_SEEN_MS = 1500;
+
+  /**
+   * A backup resumed (ED-014 section 4.1): its update applied over the bytes, its room rejoined only if the relay answers in
+   * time. `clean`: opened as saved, a hand-over in a room with nothing after the save (P42).
+   */
+  const hostResume = async (file: OpenedFile, backup: HostResume, clean = false): Promise<void> => {
+    const { meta } = backup;
+    resumingRef.current = backup;
+    const kept = memoryStore(backup.update);
+    let room: RoomConnection | undefined;
+    let note = '';
+    if (meta.room) {
+      room = connectRoom(kept.store, meta.room, !meta.joined);
+      // A room on a relay that has gone (a companion run by hand and stopped, a browser's relay down) is left. VS Code's
+      // extension keeps its companion's ports and rooms per workspace and starts it at the resume (ED-014 section 4.5), so a
+      // room on its relay answers in time.
+      try { await within(room.synced, RESUME_ROOM_WAIT); } catch { room.close(); room = undefined; note = t('status.resume.roomUnreachable'); }
+    }
+    const named: OpenedFile = { ...file, name: meta.name, ...(meta.source ? { source: { name: meta.source, lastModified: file.lastModified } } : {}) };
+    const record: SessionRecord = { id: newSessionId(), name: meta.name, bytes: file.bytes, dirty: !clean, updated: Date.now(), ...(meta.joined ? { joined: true } : {}), ...(meta.firstEdit && !clean ? { firstEdit: meta.firstEdit } : {}) };
+    try {
+      await openBytes(named, record, false, { ...kept, ...(room ? { room } : {}) });
+    } catch (e) {
+      room?.close();
+      if (!(e instanceof ProjectionVersionError)) throw e;
+      // Kept by an earlier version of the editor: the file opens as it was saved, not dirty, and the page says so. The
+      // backup cannot be restored by this editor, so it is no longer answered for.
+      resumingRef.current = null;
+      await openBytes(named);
+      const text = t('status.resume.versionRefused', { name: meta.name });
+      setStatus(text);
+      host().status(text);
+      return;
+    }
+    // The companion keeps its sessions in memory, so after a restart its agent is in no room until a person invites it again
+    // (ED-014 section 4.5, ED-005 proposal 13). A room on this computer is the companion's.
+    if (note) { setStatus((s) => `${s} ${note}`.trim()); host().status(note); }
+    else if (room && hostAgent && meta.room && isLoopbackRelay(meta.room.relay)) {
+      // The companion keeps its sessions in memory, so after a restart its agent is in no room until a person invites it
+      // again (ED-014 section 4.5, ED-005 proposal 13). Said where the room's log shows the agent worked here and it has not
+      // come back once the room's people are known; a Save As's hand-over keeps it in the room, and says nothing.
+      const joined = room;
+      const { store } = kept;
+      setTimeout(() => {
+        if (openRef.current?.room !== joined || agentLog(store).length === 0) return;
+        const present = [...joined.awareness.getStates().values()].some((st) => (st as { user?: { agent?: boolean } }).user?.agent === true);
+        if (!present) setStatus((s) => `${s} ${t('status.resume.agentOut', { agent: hostAgent.agent })}`.trim());
+      }, AGENT_SEEN_MS);
+    }
+  };
+
+  /**
+   * A file or a room a host opens: a room joined, a backup resumed, empty bytes a new document, a Markdown name converted.
+   * A place another page kept (a Save As's hand-over, ED-014 P25) is restored once the view is up, as a reload's is.
+   */
+  const hostOpen = async (source: OpenedFile | JoinSource, how?: HostOpenHow): Promise<void> => {
+    setHostOpenFailed(false);
+    if ('join' in source) { if (!(await joinRoom(source.join, source.name))) setHostOpenFailed(true); return; }
+    const file = source;
+    const place = how?.place;
+    placeRef.current = isKeptPlace(place) ? place : null;
+    try {
+      if (how?.resume) await hostResume(file, how.resume, how.clean === true);
+      else if (file.bytes.byteLength === 0) {
+        if (pageSize) await makeInPlace(pageSize, file.name);
+        else { newInPlaceRef.current = file.name; setAskPageSize(true); }
+      } else if (isMarkdownName(file.name)) {
+        const dropped = await openMarkdown(file, false, true);
+        setStatus(dropped ? t('status.open.markdownDropped', { name: file.name, dropped }) : t('status.open.markdown', { name: file.name }));
+      } else await openBytes(file);
+    } catch (e) {
+      placeRef.current = null;
+      const text = t('status.open.failedFile', { name: file.name, error: (e as Error).message });
+      setStatus(text);
+      setHostOpenFailed(true);
+      host().status(text);
+      throw e;
+    }
+  };
+
+  /** The host's save, its first phase: the export with the self-check, in the form the name asks for; a refusal shown here. */
+  const hostSave = async (name: string): Promise<{ bytes: Uint8Array } | { refused: string }> => {
+    const cur = openRef.current;
+    if (!cur) return { refused: t('host.save.nothingOpen') };
+    try {
+      const out = await exportChecked(cur.session, formatOfName(name));
+      if ('error' in out) {
+        setSelfCheck({ error: out.error, diagnosis: out.diagnosis, format: out.format });
+        setStatus(t('status.save.selfCheckFailed'));
+        return { refused: t('status.save.selfCheckFailed') };
+      }
+      lastExportRef.current = { session: cur.session, changed: out.result.changed };
+      return { bytes: out.result.bytes };
+    } catch (e) {
+      const text = t('status.notSaved', { error: reasonOf(e) });
+      setStatus(text);
+      return { refused: text };
+    }
+  };
+
+  /**
+   * The host's save, its second phase: the file is written, under this name. A Word name ends a Markdown source, as Save As
+   * does (ED-011 section 3.8); an edit after the export keeps the document unsaved.
+   */
+  const hostWritten = (name: string, clean: boolean): void => {
+    const cur = openRef.current;
+    if (!cur) return;
+    const endsSource = cur.source !== undefined && !isMarkdownName(name);
+    let next = saved(cur, { name });
+    if (endsSource) { const { source: _source, ...rest } = next; next = rest; setDiskChange(null); }
+    if (next.name !== cur.name || endsSource || cur.onDisk) setOpen(next);
+    const exported = lastExportRef.current;
+    lastExportRef.current = null;
+    // VS Code's Save writes the file in place; its Save As names another.
+    if (clean) void afterSave(next, exported?.session === cur.session ? exported.changed : true, next.name !== cur.name ? 'saveAs' : 'inPlace');
+    else setStatus(t('status.saved.editedSince'));
+  };
+
+  /** The store's state and the session's room, for a hot-exit backup: encoded directly, never behind the model's queue, which a save holds. */
+  const hostBackup = (): HostBackup | undefined => {
+    const cur = openRef.current;
+    if (!cur) return resumingRef.current ?? undefined;
+    return {
+      update: Y.encodeStateAsUpdate(cur.session.store.ydoc),
+      meta: {
+        name: cur.name,
+        ...(cur.source ? { source: cur.source.name } : {}),
+        ...(cur.room ? { room: cur.room.link } : {}),
+        ...(cur.joined ? { joined: true as const } : {}),
+        ...(dirtyRef.current && firstEditRef.current ? { firstEdit: firstEditRef.current } : {}),
+      },
+    };
+  };
+
+  /**
+   * A Save As wrote another file, which VS Code opens afresh in a new editor (ED-014 P25): this page takes no more input, for
+   * good (the whole application inert, its focus let go), and gives the body's place for the new page to restore.
+   */
+  const hostHandoff = (): { place?: unknown } => {
+    const root = document.getElementById('root');
+    if (root) root.inert = true;
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    const editor = editorRef.current;
+    return editor && !(editor.view as { isDestroyed?: boolean }).isDestroyed ? { place: keepPlace(editor) } : {};
+  };
+
+  /** The host's revert: the file's bytes (a Markdown source's, converted again) opened in place, the caret's place kept. */
+  const hostRevert = async (bytes: Uint8Array): Promise<void> => {
+    const cur = openRef.current;
+    if (!cur) return;
+    // A revert of a document with unsaved changes discards them, whoever asked: the banner's discard, or VS Code's Revert File.
+    const discarding = dirtyRef.current;
+    await reloadWith(async () => ({ name: cur.source?.name ?? cur.name, bytes, lastModified: Date.now() }), discarding, true);
+  };
+
+  /** The file changed on disk, as the host saw it: the banner, compared with its bytes; never in a room (ED-011 P3). */
+  const hostDiskChanged = (bytes: Uint8Array, lastModified: number): void => {
+    const cur = openRef.current;
+    if (!cur || cur.room) return;
+    setDiskChange({ session: cur.session, lastModified, bytes });
+  };
+
+  const hostPage: HostPage = {
+    open: hostOpen,
+    save: hostSave,
+    written: hostWritten,
+    writeFailed: (error) => setStatus(t('status.notSaved', { error })),
+    backup: hostBackup,
+    handoff: hostHandoff,
+    revert: hostRevert,
+    diskChanged: hostDiskChanged,
+    showPalette: () => { if (editorRef.current) setPalette(true); },
+    // Where the page's focus is: the frame keeps its own focus across VS Code's context menu (ED-014 section 4.4).
+    pasteText: (text) => { pastePlainText(text, document.activeElement, () => activeRef.current ?? editorRef.current); },
+    setCompanion: (url, relay) => setHostCompanion(url.trim() === '' ? null : { url: url.trim(), relay }),
+    reloadFromDisk,
+  };
+  const hostPageRef = useRef(hostPage);
+  hostPageRef.current = hostPage;
+  useEffect(() => host().attach({
+    open: (source, how) => hostPageRef.current.open(source, how),
+    save: (name) => hostPageRef.current.save(name),
+    written: (name, clean) => hostPageRef.current.written(name, clean),
+    writeFailed: (error) => hostPageRef.current.writeFailed(error),
+    backup: () => hostPageRef.current.backup(),
+    handoff: () => hostPageRef.current.handoff(),
+    revert: (bytes) => hostPageRef.current.revert(bytes),
+    diskChanged: (bytes, lastModified) => hostPageRef.current.diskChanged(bytes, lastModified),
+    showPalette: () => hostPageRef.current.showPalette(),
+    pasteText: (text) => hostPageRef.current.pasteText(text),
+    setCompanion: (url, relay) => hostPageRef.current.setCompanion(url, relay),
+    reloadFromDisk: (discarding) => hostPageRef.current.reloadFromDisk(discarding),
+  }), []);
+
+  /** The banner's Reload, and the confirmed discard: the browser reads its handle again, VS Code reverts (P18). */
+  const askReload = (discarding: boolean): void => {
+    // The offer goes at the click: VS Code's revert comes later, as a message.
+    setDiskChange(null);
+    host().reload(discarding);
+  };
+
   // Ctrl+S (⌘S) saves from anywhere in the application, as Ctrl+P prints: taken in the capture phase,
   // since the browser would otherwise offer to save the page itself; with no document open the key
   // is the browser's. The save is the Save button's when the file can be written in place, else the download.
   const saveRef = useRef(doSave);
   saveRef.current = doSave;
   useEffect(() => {
+    // VS Code's Save in its webview (ED-014 section 3.4): the key must reach the workbench.
+    if (!host().has('appKeys')) return;
     const onKey = (e: KeyboardEvent): void => {
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 's' || !openRef.current) return;
       e.preventDefault();
@@ -1325,7 +1673,9 @@ export function App() {
   };
 
   const current = perspectiveNamed(perspective) ?? perspectives()[0]!;
-  const summary = open ? diagnosticSummary(open.session.diagnostics, listedChanges(open.session)) : '';
+  const summary = open && bannerCounts ? diagnosticSummary(open.session.diagnostics, bannerCounts) : '';
+  // Spent only once the comments are read: before, a document with comments alone has said nothing yet.
+  useEffect(() => { if (open && bannerCounts && bannerCounts.comments !== undefined && summary === '') setBannerSpent(open.session); }, [open, bannerCounts, summary]);
   const fsa = hasFileSystemAccess();
   const offer = suggested && open && suggested.session === open.session ? suggested.ids.filter((id) => id !== perspective).map((id) => perspectiveNamed(id)).filter((p) => p !== undefined) : [];
   // The compact layout draws no side panel (ED-013 section 3.9): its Review use becomes a sheet (S3).
@@ -1353,13 +1703,15 @@ export function App() {
           </select>
         </label>
         {isDraft(lang) && <p className="meta" data-testid="language-draft">{tr('options.language.draft')}</p>}
-        <label>{tr('options.layout')}{' '}
-          <select data-testid="option-layout" value={layoutChoice} onChange={(e) => { const v = isLayoutChoice(e.target.value) ? e.target.value : 'auto'; setLayoutChoice(v); saveLayout(v); }}>
-            <option value="auto">{tr('options.layout.auto')}</option>
-            <option value="compact">{tr('options.layout.compact')}</option>
-            <option value="full">{tr('options.layout.full')}</option>
-          </select>
-        </label>
+        {host().has('layoutChoice') && (
+          <label>{tr('options.layout')}{' '}
+            <select data-testid="option-layout" value={layoutChoice} onChange={(e) => { const v = isLayoutChoice(e.target.value) ? e.target.value : 'auto'; setLayoutChoice(v); saveLayout(v); }}>
+              <option value="auto">{tr('options.layout.auto')}</option>
+              <option value="compact">{tr('options.layout.compact')}</option>
+              <option value="full">{tr('options.layout.full')}</option>
+            </select>
+          </label>
+        )}
         <label className="check"><input type="checkbox" data-testid="option-headers" checked={headersAndFooters} onChange={(e) => setOption(OPTION_HEADERS, e.target.checked)} /> {tr('options.headers')}</label>
       </fieldset>
       <fieldset>
@@ -1377,10 +1729,11 @@ export function App() {
           </select>
         </label>
         <label className="check"><input type="checkbox" data-testid="option-app" checked={writeApp} onChange={(e) => setOption(OPTION_APP, e.target.checked)} /> {tr('options.writeApp', { name: APPLICATION_NAME })}</label>
-        <label className="check"><input type="checkbox" data-testid="option-save-in-place" checked={inPlace} onChange={(e) => setOption(OPTION_SAVE_IN_PLACE, e.target.checked)} /> {tr('options.saveInPlace')}</label>
+        {host().has('saveInPlace') && <label className="check"><input type="checkbox" data-testid="option-save-in-place" checked={inPlace} onChange={(e) => setOption(OPTION_SAVE_IN_PLACE, e.target.checked)} /> {tr('options.saveInPlace')}</label>}
         <label className="check"><input type="checkbox" data-testid="option-marks" checked={formattingMarks} onChange={(e) => setOption(OPTION_MARKS, e.target.checked)} /> {tr('options.formattingMarks')}</label>
         <label className="check"><input type="checkbox" data-testid="option-ask-before-close" checked={askBeforeClose} onChange={(e) => setOption(OPTION_ASK_BEFORE_CLOSE, e.target.checked)} /> {tr('options.askBeforeClose')}</label>
-        <label className="check"><input type="checkbox" data-testid="option-spellcheck" checked={spellcheck} onChange={(e) => setOption(OPTION_SPELLCHECK, e.target.checked)} /> {tr('options.spellcheck')}</label>
+        {/* Not in VS Code, whose windows have no spell checker (ED-014 P35). */}
+        {host().has('spelling') && <label className="check"><input type="checkbox" data-testid="option-spellcheck" checked={spellcheck} onChange={(e) => setOption(OPTION_SPELLCHECK, e.target.checked)} /> {tr('options.spellcheck')}</label>}
       </fieldset>
       <fieldset>
         <legend>{tr('options.group.sharing')}</legend>
@@ -1388,23 +1741,39 @@ export function App() {
           <input type="text" data-testid="option-name" placeholder={localUser('').name} value={userName}
             onChange={(e) => { setUserName(e.target.value); setNameOption(e.target.value); }} />
         </label>
-        <label>{tr('options.relay')}{' '}
+        {/* Not in VS Code, whose extension shares into its companion's relay (ED-014 P41). */}
+        {host().has('companionOptions') && <label>{tr('options.relay')}{' '}
           <input type="url" data-testid="option-relay" placeholder="wss://relay.example.org" value={relay}
             onChange={(e) => { setRelay(e.target.value); setRelayOption(e.target.value); }} />
-        </label>
+        </label>}
       </fieldset>
       <fieldset>
         <legend>{tr('options.group.services')}</legend>
-        <label>{tr('options.companion')}{' '}
+        {host().has('companionOptions') && <label>{tr('options.companion')}{' '}
           <input type="url" data-testid="option-companion" placeholder="http://localhost:4174" value={companion}
             onChange={(e) => { setCompanion(e.target.value); try { localStorage.setItem(OPTION_COMPANION, e.target.value); } catch { /* ignore */ } }} />
-        </label>
-        <label>{tr('options.askKey')}{' '}
-          <input type="password" data-testid="option-ask-key" autoComplete="off" value={askKey} onChange={(e) => { setAskKey(e.target.value); setAskOption(OPTION_ASK_KEY, e.target.value); }} />
-        </label>
-        <label>{tr('options.askBaseUrl')}{' '}
-          <input type="url" data-testid="option-ask-base-url" placeholder="https://api.anthropic.com" value={askBaseUrl} onChange={(e) => { setAskBaseUrl(e.target.value); setAskOption(OPTION_ASK_BASE_URL, e.target.value); }} />
-        </label>
+        </label>}
+        {host().has('askOptions') ? (
+          <>
+            <label>{tr('options.askKey')}{' '}
+              <input type="password" data-testid="option-ask-key" autoComplete="off" value={askKey} onChange={(e) => { setAskKey(e.target.value); setAskOption(OPTION_ASK_KEY, e.target.value); }} />
+            </label>
+            <label>{tr('options.askBaseUrl')}{' '}
+              <input type="url" data-testid="option-ask-base-url" placeholder="https://api.anthropic.com" value={askBaseUrl} onChange={(e) => { setAskBaseUrl(e.target.value); setAskOption(OPTION_ASK_BASE_URL, e.target.value); }} />
+            </label>
+          </>
+        ) : (
+          // VS Code keeps the key in its SecretStorage and its address in a setting (ED-014 P45): the page shows whether a key
+          // is set, and its buttons run VS Code's commands, so the key never passes through the page.
+          <div className="option-ask-key-state" data-testid="option-ask-key-state">
+            <p>{askKeyStored ? tr('options.askKey.stored') : tr('options.askKey.none')}</p>
+            <div className="pane-actions">
+              <button type="button" data-testid="option-ask-key-set" onClick={() => host().ask()?.key('set')}>{tr('options.askKey.set')}</button>
+              <button type="button" data-testid="option-ask-key-remove" disabled={!askKeyStored} onClick={() => host().ask()?.key('remove')}>{tr('options.askKey.remove')}</button>
+              <button type="button" data-testid="option-ask-key-settings" title={tr('options.askKey.settings.title')} onClick={() => host().ask()?.key('settings')}>{tr('options.askKey.settings')}</button>
+            </div>
+          </div>
+        )}
       </fieldset>
     </>
   );
@@ -1418,54 +1787,64 @@ export function App() {
         tracking={{ author: localUser(userName).name, onToggle: () => void setTracking('toggle'), onStatus: setStatus, local: trackingLocal }}
         keyboard={keyboard} options={optionsFields}
         actions={{
-          onOpen: fsa ? () => void onPick() : () => openInputRef.current?.click(),
-          onNew: () => void startNew(),
-          ...(open?.handle && inPlace ? { onSave: () => void doSave() } : {}),
-          ...(fsa ? { onSaveAs: () => void doSaveAs() } : {}),
-          onDownload: () => void doDownload(),
-          ...(canSend ? { onSendCopy: () => void doSendCopy() } : {}),
-          ...(open && !open.room && relay.trim() !== '' ? { onShare: () => void doShare() } : {}),
-          onJoin: () => setJoinDialog(true),
+          ...(host().has('open') ? { onOpen: fsa ? () => void onPick() : () => openInputRef.current?.click() } : {}),
+          ...(host().has('new') ? { onNew: () => void startNew() } : {}),
+          ...(open?.handle && inPlace && host().has('saveInPlace') ? { onSave: () => void doSave() } : {}),
+          ...(fsa && host().has('saveAs') ? { onSaveAs: () => void doSaveAs() } : {}),
+          ...(host().has('download') ? { onDownload: () => void doDownload() } : {}),
+          ...(canSend && host().has('sendCopy') ? { onSendCopy: () => void doSendCopy() } : {}),
+          ...(open && !open.room && shareOffered ? { onShare: () => void doShare() } : {}),
+          ...(host().has('join') ? { onJoin: () => setJoinDialog(true) } : {}),
           onFind: () => openFind(false),
-          onClose: () => { if (askBeforeClose && dirty) setCloseAsk(true); else void closeCurrent(true); },
+          ...(host().has('close') ? { onClose: () => { if (askBeforeClose && dirty) setCloseAsk(true); else void closeCurrent(true); } } : {}),
           onPalette: () => setPalette(true),
         }} />
-      <input ref={openInputRef} className="compact-open-input" type="file" accept={OPEN_ACCEPT} data-testid="open" tabIndex={-1} aria-hidden="true" onChange={(e) => void onFile(e.target.files?.[0])} />
+      {host().has('open') && <input ref={openInputRef} className="compact-open-input" type="file" accept={OPEN_ACCEPT} data-testid="open" tabIndex={-1} aria-hidden="true" onChange={(e) => void onFile(e.target.files?.[0])} />}
     </>
   );
 
   return (
-    <div className={`app${compact ? ' compact' : ''}${keyboard.open ? ' keyboard-open' : ''}${keyboard.landscape ? ' landscape' : ''}`} lang={lang} dir={directionOf(lang)} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
-      onDrop={(e) => { e.preventDefault(); setOver(false); const file = e.dataTransfer.files[0]; void handleOfDrop(e.dataTransfer).then((handle) => onFile(file, handle)); }}>
+    <div className={`app${compact ? ' compact' : ''}${keyboard.open ? ' keyboard-open' : ''}${keyboard.landscape ? ' landscape' : ''}`} lang={lang} dir={directionOf(lang)} onDragOver={(e) => { e.preventDefault(); if (host().has('open')) setOver(true); }} onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        // In VS Code a drop would replace the document VS Code believes this editor holds (ED-014 section 4.1).
+        if (!host().has('open')) return;
+        const file = e.dataTransfer.files[0];
+        void handleOfDrop(e.dataTransfer).then((handle) => onFile(file, handle));
+      }}>
       {compact ? compactShell : (<>
       <div className="app-bar" role="toolbar" aria-label={tr('app.bar')}>
         <span className="title">docx4j editor</span>
-        <button type="button" data-testid="new" onClick={() => void startNew()}>{tr('app.new')}</button>
-        {fsa && <button type="button" onClick={() => void onPick()}>{tr('app.open')}</button>}
+        {/* What VS Code does itself (Open, New, Close, Save and Save As) and what a webview cannot (Print) is the host's to leave out (ED-014 section 3.8). */}
+        {host().has('new') && <button type="button" data-testid="new" onClick={() => void startNew()}>{tr('app.new')}</button>}
+        {fsa && host().has('open') && <button type="button" onClick={() => void onPick()}>{tr('app.open')}</button>}
         {/* The plain file input is the way in for a browser without the File System Access API (and for the tests); with Open… available it stays in the DOM, hidden. */}
-        <label className="open" hidden={fsa}>
-          {tr('app.openInput')} <input type="file" accept={OPEN_ACCEPT} data-testid="open" onChange={(e) => void onFile(e.target.files?.[0])} />
-        </label>
-        {open?.handle && inPlace && <button type="button" data-testid="save" onClick={() => void doSave()}>{tr('app.save')}</button>}
-        {fsa && <button type="button" data-testid="save-as" onClick={() => void doSaveAs()} disabled={!open}>{tr('app.saveAs')}</button>}
-        <button type="button" data-testid="download" onClick={() => void doDownload()} disabled={!open}>{tr('app.download')}</button>
-        <button type="button" data-testid="print" onClick={() => void doPrint()} disabled={!open || !editor} title={tr('app.print.title')}>{tr('app.print')}</button>
+        {host().has('open') && (
+          <label className="open" hidden={fsa}>
+            {tr('app.openInput')} <input type="file" accept={OPEN_ACCEPT} data-testid="open" onChange={(e) => void onFile(e.target.files?.[0])} />
+          </label>
+        )}
+        {open?.handle && inPlace && host().has('saveInPlace') && <button type="button" data-testid="save" onClick={() => void doSave()}>{tr('app.save')}</button>}
+        {fsa && host().has('saveAs') && <button type="button" data-testid="save-as" onClick={() => void doSaveAs()} disabled={!open}>{tr('app.saveAs')}</button>}
+        {host().has('download') && <button type="button" data-testid="download" onClick={() => void doDownload()} disabled={!open}>{tr('app.download')}</button>}
+        {host().has('print') && <button type="button" data-testid="print" onClick={() => void doPrint()} disabled={!open || !editor} title={tr('app.print.title')}>{tr('app.print')}</button>}
         {open && companionTools?.includes('paginate') && (
           <button type="button" data-testid="repaginate" onClick={() => void doRepaginate()} disabled={repaginating}
             title={tr('app.repaginate.title')}>{tr('app.repaginate')}</button>
         )}
-        {open && !open.room && relay.trim() !== '' && (
+        {open && !open.room && shareOffered && (
           <button type="button" data-testid="share" onClick={() => void doShare()} title={tr('app.share.title')}>{tr('app.share')}</button>
         )}
-        {open && companionInfo?.agent && agentRelay && (
+        {open && agentName && (hostAgent || agentRelay) && (
           <button type="button" data-testid="invite-agent" onClick={() => void doInvite()}
-            disabled={open.room !== undefined && open.room.link.relay !== agentRelay}
-            title={open.room !== undefined && open.room.link.relay !== agentRelay ? tr('app.invite.otherRelay', { agent: companionInfo.agent }) : tr('app.invite.title', { agent: companionInfo.agent })}>
-            {tr('app.invite', { agent: companionInfo.agent })}
+            disabled={open.room !== undefined && agentRelay !== undefined && open.room.link.relay !== agentRelay}
+            title={open.room !== undefined && agentRelay !== undefined && open.room.link.relay !== agentRelay ? tr('app.invite.otherRelay', { agent: agentName }) : tr('app.invite.title', { agent: agentName })}>
+            {tr('app.invite', { agent: agentName })}
           </button>
         )}
-        <button type="button" data-testid="join" onClick={() => setJoinDialog(true)} title={tr('app.join.title')}>{tr('app.join')}</button>
-        <button type="button" data-testid="close" onClick={() => { if (askBeforeClose && dirty) setCloseAsk(true); else void closeCurrent(true); }} disabled={!open}>{tr('app.close')}</button>
+        {host().has('join') && <button type="button" data-testid="join" onClick={() => setJoinDialog(true)} title={tr('app.join.title')}>{tr('app.join')}</button>}
+        {host().has('close') && <button type="button" data-testid="close" onClick={() => { if (askBeforeClose && dirty) setCloseAsk(true); else void closeCurrent(true); }} disabled={!open}>{tr('app.close')}</button>}
         {open && <span className="name" data-testid="name">{open.onDisk ? onDiskName(open.name, tr) : open.name}{dirty ? ' •' : ''}</span>}
         {open?.room && roomStatus && (
           <span data-testid="room-status" data-status={roomStatus} className={`room-status ${roomStatus}`} title={tr('room.status.title', { host: relayHost(open.room.link.relay) })}>
@@ -1475,7 +1854,7 @@ export function App() {
         {open?.room && <PeopleList awareness={open.room.awareness} store={open.session.store} onStatus={setStatus}
           noteLabel={(key) => (editor ? decorationsKey.getState(editor.state)?.noteLabels.get(key) : undefined)} />}
         {open?.room && (
-          <button type="button" className="link" data-testid="share-show" onClick={() => setShareUrl(roomLinkUrl(siteAddress(), open.room!.link))}>{tr('app.share.link')}</button>
+          <button type="button" className="link" data-testid="share-show" onClick={() => setShareUrl(roomLinkUrl(host().siteAddress(), open.room!.link))}>{tr('app.share.link')}</button>
         )}
         {editor && open && <TrackingSwitch editor={editor} author={localUser(userName).name} onToggle={() => void setTracking('toggle')} onStatus={setStatus} local={trackingLocal} />}
         {editor && open && <button type="button" className="new-comment" data-testid="new-comment" title={tr('comments.new.title')} onMouseDown={(e) => e.preventDefault()} onClick={() => void newComment()}>{tr('comments.new')}</button>}
@@ -1513,7 +1892,7 @@ export function App() {
                 </li>
               ))}
             </ul>
-            {!documentMacrosEnabled() && <p className="meta" data-testid="macros-disabled">{tr('macros.disabled')}</p>}
+            {!documentMacrosEnabled() && <p className="meta" data-testid="macros-disabled">{tr(documentMacrosBuilt() ? 'macros.disabledUntrusted' : 'macros.disabled')}</p>}
             <p className="meta">{tr('macros.note')}</p>
           </div>
         </details>
@@ -1524,7 +1903,7 @@ export function App() {
           </div>
         </details>
       </div>
-      {editor && open && current.toolbar !== 'none' && <Toolbar editor={active ?? editor} styles={open.styles} fonts={open.fonts} preset={current.toolbar} controls={current.controls === true} onControl={current.tabs.some((t) => t.id === 'control') ? () => setTab('control') : undefined} onFitTable={() => void fitTable()} />}
+      {editor && open && current.toolbar !== 'none' && <Toolbar editor={active ?? editor} styles={open.styles} fonts={open.fonts} preset={current.toolbar} controls={current.controls === true} onControl={current.tabs.some((t) => t.id === 'control') ? () => setTab('control') : undefined} onFitTable={() => void fitTable()} bindLink={bindLink} />}
       </>)}
       {open && editor && stale?.session === open.session && (
         <div className="banner offer" role="status" data-testid="stale-offer">
@@ -1544,8 +1923,8 @@ export function App() {
           {tr(dirty ? 'banner.disk.changedDirty' : 'banner.disk.changed', { name: open.source?.name ?? open.name })}
           {' '}
           <span data-testid="disk-counts">{diskCountsText(diskChange.comparison, tr)}</span>
-          {!dirty && <button type="button" data-testid="disk-reload" onClick={() => void reloadFromDisk()}>{tr('banner.disk.reload')}</button>}
-          {dirty && <button type="button" data-testid="disk-open-tab" onClick={() => void openDiskInTab()}>{tr('banner.disk.openTab')}</button>}
+          {!dirty && <button type="button" data-testid="disk-reload" onClick={() => askReload(false)}>{tr('banner.disk.reload')}</button>}
+          {dirty && host().has('diskInTab') && <button type="button" data-testid="disk-open-tab" onClick={() => void openDiskInTab()}>{tr('banner.disk.openTab')}</button>}
           {dirty && <button type="button" data-testid="disk-discard" onClick={() => setDiscardAsk(true)}>{tr('banner.disk.discard')}</button>}
           <button type="button" className="link" data-testid="disk-keep" onClick={() => setDiskChange(null)}>{tr('banner.disk.keep')}</button>
         </div>
@@ -1567,8 +1946,8 @@ export function App() {
       {joinOffer && (
         <div className="banner offer" role="status" data-testid="join-offer">
           {tr('banner.join', { host: relayHost(joinOffer.relay) })}
-          <button type="button" data-testid="join-accept" onClick={() => void joinRoom(joinOffer)}>{tr('banner.join.accept')}</button>
-          <button type="button" className="link" data-testid="join-decline" onClick={() => { setJoinOffer(null); history.replaceState(null, '', siteAddress()); }}>{tr('banner.join.decline')}</button>
+          <button type="button" data-testid="join-accept" onClick={() => void host().openDocument({ name: '', join: joinOffer })}>{tr('banner.join.accept')}</button>
+          <button type="button" className="link" data-testid="join-decline" onClick={() => { setJoinOffer(null); history.replaceState(null, '', pageAddress()); }}>{tr('banner.join.decline')}</button>
         </div>
       )}
       {open && open.session.roomProblems.length > 0 && (
@@ -1598,7 +1977,7 @@ export function App() {
         <div className="banner" role="status" data-testid="banner">
           {summary} <button type="button" className="link" data-testid="banner-details" onClick={() => setDetails((d) => !d)}>{details ? tr('banner.details.hide') : tr('banner.details.show')}</button>
           {/* The one offer of the Review perspective (ED-005 section 6.7): Review registers no `suggest`. */}
-          {perspective !== 'review' && perspectiveNamed('review') && (open.session.diagnostics.comments > 0 || listedChanges(open.session) + preservedCount(open.session.diagnostics) > 0) && (
+          {perspective !== 'review' && perspectiveNamed('review') && bannerCounts && ((bannerCounts.comments ?? 0) + bannerCounts.changes + bannerCounts.preserved > 0) && (
             <>{' '}<button type="button" className="link" data-testid="review-offer" onClick={() => switchPerspective('review')}>{tr('banner.perspective.open', { perspective: perspectiveLabel(perspectiveNamed('review')!) })}</button></>
           )}
           {details && editor && <DiagnosticList editor={editor} entries={open.session.diagnostics.opaque} testId="banner-list" />}
@@ -1621,12 +2000,19 @@ export function App() {
                 {editor && !compact && <CommentsMargin editor={editor} session={open.session} me={localUser(userName).name} onStatus={setStatus} onActivate={onActivate} onDestroy={onSurfaceDestroy} shortcuts={shortcuts} />}
               </div>
             )
-            : (
-              <div className={`drop-zone${over ? ' over' : ''}`}>
-                <p>{tr('app.dropZone')}</p>
-                <button type="button" data-testid="open-sample" onClick={() => void openSample()}>{tr('app.openSample')}</button>
-              </div>
-            )}
+            : host().has('startPage')
+              ? (
+                <div className={`drop-zone${over ? ' over' : ''}`}>
+                  <p>{tr('app.dropZone')}</p>
+                  <button type="button" data-testid="open-sample" onClick={() => void openSample()}>{tr('app.openSample')}</button>
+                </div>
+              )
+              : (
+                // A page waiting for its host's open (ED-014 section 4.1); the status line says why one failed.
+                <div className="drop-zone opening" data-testid="opening">
+                  <p>{hostOpenFailed ? tr('app.openFailed') : tr('app.opening')}</p>
+                </div>
+              )}
         </div>
         {editor && open && panelShown && (
           <>
@@ -1669,16 +2055,20 @@ export function App() {
       {palette && editor && <Palette editor={active ?? editor} onClose={() => setPalette(false)} onInsert={(script) => handToConsole(script, 'insert')} macros={paletteMacros} actions={paletteActions} />}
       {macroSave !== null && <SaveMacroDialog script={macroSave} documentAllowed={documentMacrosEnabled() && open !== undefined} onSave={(name, home) => void saveMacro(name, home)} onClose={() => setMacroSave(null)} />}
       {macroShow && <MacroSourceDialog macro={macroShow} onRun={() => void runShown()} onClose={() => setMacroShow(null)} />}
-      {shareUrl && open?.room && <ShareDialog url={shareUrl} relay={open.room.link.relay} onClose={() => setShareUrl(null)} />}
-      {joinDialog && <JoinDialog onJoin={(link) => void joinRoom(link)} onClose={() => setJoinDialog(false)} />}
-      {askPageSize && <PageSizeDialog onChoose={choosePageSize} onClose={() => setAskPageSize(false)} />}
+      {shareUrl && open?.room && <ShareDialog url={shareUrl} relay={open.room.link.relay} local={hostAgent !== undefined} onClose={() => setShareUrl(null)} />}
+      {joinDialog && <JoinDialog onJoin={(link) => void host().openDocument({ name: '', join: link })} onClose={() => setJoinDialog(false)} />}
+      {askPageSize && <PageSizeDialog onChoose={choosePageSize} onClose={() => {
+        setAskPageSize(false);
+        // The host's new editor must be filled: closed without a choice, the dialog's own A4 (ED-014 section 4.1).
+        if (newInPlaceRef.current !== null) void makeInPlace('A4', newInPlaceRef.current);
+      }} />}
       {closeAsk && open && (
         <DiscardCloseDialog name={open.name} onClose={() => setCloseAsk(false)}
           onConfirm={() => { setCloseAsk(false); void closeCurrent(true); }} />
       )}
       {discardAsk && open && (
         <DiscardReloadDialog name={open.source?.name ?? open.name} onClose={() => setDiscardAsk(false)}
-          onConfirm={() => { setDiscardAsk(false); void reloadFromDisk(true); }} />
+          onConfirm={() => { setDiscardAsk(false); askReload(true); }} />
       )}
       {askCommentName && (
         <TrackingNameDialog purpose="comments" initial={localUser('').name} onClose={() => setAskCommentName(false)}
@@ -1691,7 +2081,7 @@ export function App() {
       {sendReady && <SendReadyDialog name={sendReady.name} onSend={() => void sendAgain(sendReady)} onClose={() => { setSendReady(null); setStatus(t('status.send.cancelled')); }} />}
       {selfCheck && open && (
         <SelfCheckDialog error={selfCheck.error} session={open.session} diagnosis={selfCheck.diagnosis} name={diagnosisName(open.name, selfCheck.format)}
-          onDiagnosis={() => download(selfCheck.diagnosis, diagnosisName(open.name, selfCheck.format))} onClose={() => setSelfCheck(null)} />
+          onDiagnosis={() => host().download(selfCheck.diagnosis, diagnosisName(open.name, selfCheck.format))} onClose={() => setSelfCheck(null)} />
       )}
     </div>
   );

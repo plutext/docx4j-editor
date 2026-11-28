@@ -10,12 +10,11 @@ import { EditorState, Plugin, type Transaction } from 'prosemirror-state';
 import { AttrStep } from 'prosemirror-transform';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { NodeViewConstructor, MarkViewConstructor } from 'prosemirror-view';
-import { keymap } from 'prosemirror-keymap';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { ySyncPlugin, yUndoPlugin, ySyncPluginKey, initProseMirrorDoc } from 'y-prosemirror';
 import type { Transaction as YTransaction } from 'yjs';
 import { type EditorDocument, sessionPlugin, FINAL_SECT_PR } from '@docx4j/editor-model';
-import { wordKeymap, editorBaseKeymap } from './plugins/keymap.js';
+import { surfaceKeymaps } from './plugins/keymap.js';
 import { finalSectPrPlugin } from './plugins/finalSectPr.js';
 import { invisibleAtomsPlugin } from './plugins/invisibleAtoms.js';
 import { decorationsPlugin, type BoundaryMount, type PageSide } from './plugins/decorations.js';
@@ -129,6 +128,8 @@ export class DocxEditorView extends SurfaceBase implements StylesheetOwner {
     const withAttrs = session.schema.topNodeType.create({ finalSectPr: session.store.package.get(FINAL_SECT_PR) ?? null }, doc.content);
     // A keystroke here goes to the store under the sync plugin's origin: the user's history too.
     session.undoManager.addTrackedOrigin(ySyncPluginKey);
+    // The keymaps, and the test of the keys they bind that the extension's key gate asks (ED-014 section 4.4).
+    const keys = surfaceKeymaps(options.shortcuts);
     const state = EditorState.create({
       doc: withAttrs,
       plugins: [
@@ -143,9 +144,7 @@ export class DocxEditorView extends SurfaceBase implements StylesheetOwner {
         invisibleAtomsPlugin(),
         // Before the keymaps: Backspace and Delete next to content the view hides (ED-005 section 6.4).
         markupPlugin(),
-        keymap(Object.fromEntries(Object.entries(options.shortcuts ?? {}).map(([key, fn]) => [key, () => { fn(); return true; }]))),
-        keymap(wordKeymap()),
-        keymap(editorBaseKeymap()),
+        ...keys.plugins,
         // Before the table plugins: a click on a table's top border selects the column, never starts a cell drag (ED-005 section 12.107).
         columnSelectPlugin(),
         ...tablesPlugins(),
@@ -179,7 +178,7 @@ export class DocxEditorView extends SurfaceBase implements StylesheetOwner {
       markViews: markViews(session, this.authors) as Record<string, MarkViewConstructor>,
       // A function, so the name follows the language; the document's own direction is its paragraphs' (w:bidi), never the chrome's.
       attributes: () => ({ role: 'textbox', 'aria-multiline': 'true', 'aria-label': t('view.document'), dir: 'ltr' }),
-    });
+    }, keys.binds);
     // Remote changes (a peer, an undo from the store) arrive as transactions through the same path.
     // The controls map changed by something other than this view (an undo, a tree run, a peer):
     // an empty transaction so the current-control marks, the row labels and the panels refresh.

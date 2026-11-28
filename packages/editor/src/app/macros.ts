@@ -10,6 +10,7 @@ import { readDocumentMacros, writeDocumentMacros, type EditorDocument, type Macr
 import type { EditorSurface } from '../view/surface.js';
 import { runScript, editorBinding, type ConsoleOutput, type RunOutcome } from './console-run.js';
 import { t } from './i18n.js';
+import { host } from './host.js';
 
 const BROWSER_KEY = 'docx4j-editor.macros';
 const TRUSTED_KEY = 'docx4j-editor.macros.trusted';
@@ -20,10 +21,18 @@ export interface StoredMacro extends Macro {
   home: MacroHome;
 }
 
-/** Whether this deployment offers document macros (`VITE_DOCUMENT_MACROS=off` at build time turns them off; the part is kept). */
-export function documentMacrosEnabled(): boolean {
+/** Whether this deployment offers document macros at all (`VITE_DOCUMENT_MACROS=off` at build time turns them off; the part is kept). */
+export function documentMacrosBuilt(): boolean {
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
   return env?.['VITE_DOCUMENT_MACROS'] !== 'off';
+}
+
+/**
+ * Whether document macros are offered: the build's flag, and the host's feature (ED-014 P27): VS Code offers them only in a
+ * trusted workspace, as its boot data said when the page was written.
+ */
+export function documentMacrosEnabled(): boolean {
+  return documentMacrosBuilt() && host().has('documentMacros');
 }
 
 // ---------------------------------------------------------------- the browser's list

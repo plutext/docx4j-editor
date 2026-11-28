@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Edite documentos do Word no VS Code: o XML à vista, controles de conteúdo e modelos OpenDoPE, alterações controladas e as edições de um agente em nome dele.",
+  "untrusted": "No Modo Restrito, os documentos abrem e podem ser editados, mas as macros de um documento não são oferecidas e o complemento do agente não é iniciado.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown como documento do Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "Novo Documento do Word",
+  "command.newDocument.short": "Documento do Word",
+  "command.commands": "Comandos",
+  "command.pasteText": "Colar como Texto sem Formatação",
+  "command.copyAgentAddress": "Copiar o Endereço MCP do Agente",
+  "command.join": "Entrar em uma Sala…",
+  "mcp.label": "docx4j editor: o complemento do agente",
+  "config.agent.name": "O nome do agente: nas alterações controladas e nos comentários dele, e na lista de pessoas. Entra em vigor na próxima vez que o complemento for iniciado, quando a janela for aberta novamente.",
+  "command.ask.setKey": "Definir a Chave da API da Anthropic…",
+  "command.ask.removeKey": "Remover a Chave da API da Anthropic",
+  "config.ask.baseUrl": "O endereço para o qual a caixa Perguntar envia solicitações com sua chave da API da Anthropic: o da própria Anthropic (`https://api.anthropic.com`) quando vazio, ou então um proxy mantido pela sua organização. Somente suas configurações de usuário o guardam, no perfil Padrão, nunca as de um workspace: a chave vai para onde esta configuração indicar."
+}

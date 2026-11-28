@@ -93,9 +93,10 @@ const THIN = '-'.repeat(80);
 
 /**
  * THIRD-PARTY-NOTICES.txt for `what` (the site, or a package), over the packages given (from
- * describePackage), each once by name and version; `licenceFile` is the GPL's file beside it.
+ * describePackage), each once by name and version; `licenceFile` is the GPL's file beside it, and
+ * `more` paragraphs said after the introduction (the VS Code extension's names its other bundles' notices).
  */
-export function noticesText(what, packages, licenceFile = 'LICENSE') {
+export function noticesText(what, packages, licenceFile = 'LICENSE', more = []) {
   const unique = new Map();
   for (const p of packages) if (p) unique.set(`${p.name}@${p.version}`, p);
   const sorted = [...unique.values()].sort((a, b) => (a.name === b.name ? (a.version < b.version ? -1 : 1) : a.name < b.name ? -1 : 1));
@@ -106,6 +107,7 @@ export function noticesText(what, packages, licenceFile = 'LICENSE') {
     `or later (see ${licenceFile}). It includes or depends on the ${sorted.length} third-party packages below, each`,
     'under its own licence. Their licence and notice files follow, as each package ships them.',
     '',
+    ...more.flatMap((paragraph) => [paragraph, '']),
   ];
   for (const p of sorted) {
     out.push(RULE, `${p.name} ${p.version}`, `Licence: ${p.licence ?? 'not stated'}`);

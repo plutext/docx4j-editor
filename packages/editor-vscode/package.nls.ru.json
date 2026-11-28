@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Редактирование документов Word в VS Code: XML перед глазами, элементы управления содержимым и шаблоны OpenDoPE, исправления и правки агента под его собственным именем.",
+  "untrusted": "В ограниченном режиме документы открываются и их можно редактировать, но макросы документа не предлагаются, а сервис-компаньон агента не запускается.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown как документ Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "Создать документ Word",
+  "command.newDocument.short": "Документ Word",
+  "command.commands": "Команды",
+  "command.pasteText": "Вставить как обычный текст",
+  "command.copyAgentAddress": "Копировать MCP-адрес агента",
+  "command.join": "Присоединиться к комнате…",
+  "mcp.label": "docx4j editor: сервис-компаньон агента",
+  "config.agent.name": "Имя агента: в его исправлениях, в его примечаниях и в списке участников. Вступает в силу при следующем запуске сервиса-компаньона, то есть при следующем открытии окна.",
+  "command.ask.setKey": "Задать ключ Anthropic API…",
+  "command.ask.removeKey": "Удалить ключ Anthropic API",
+  "config.ask.baseUrl": "Адрес, на который поле «Вопрос» отправляет запросы с вашим ключом Anthropic API: если пусто — собственный адрес Anthropic (`https://api.anthropic.com`), иначе прокси, который поддерживает ваша организация. Хранится только в ваших пользовательских параметрах, в профиле по умолчанию, и никогда в параметрах рабочей области: ключ отправляется туда, куда указывает этот параметр."
+}

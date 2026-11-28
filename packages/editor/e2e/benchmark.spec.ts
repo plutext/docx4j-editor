@@ -3,7 +3,7 @@
 // The benchmark in the browser (ED-002 section 7.5; ED-001 decision 10): the 255-page document
 // opened through the file input, the marks the app leaves (`docx4j:open`, `docx4j:ready`,
 // `docx4j:painted`), the footnote panel's time over `footnote.docx`, a find of "um" and typing
-// with the find bar open (ED-005 section 3.6), and typing with tracking on (section 5.4). Printed and written to `benchmark.json` beside
+// with the find bar open (ED-005 section 3.6), typing with tracking on (section 5.4), and an edited save (ED-015). Printed and written to `benchmark.json` beside
 // this package, which CI uploads; never asserted.
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -465,4 +465,84 @@ test('benchmark: an agent writing in the 255-page document (ED-005 section 9.4 i
     await rm(root, { recursive: true, force: true });
     await rm(data, { recursive: true, force: true });
   }
+});
+
+// ED-014 P20 (S1.4): in VS Code the store lives in memory and each hot-exit backup encodes it whole, through the page's `backup`
+// message (VS Code asks about a second after each change, S0). Over 200 ms on the 255-page document, typed in, the backup
+// becomes incremental, as a later step.
+test('benchmark: a VS Code backup of the 255-page document, typed in (ED-014 P20; reported, never gating)', async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown>;
+    const posted: unknown[] = [];
+    w['__posted'] = posted;
+    w['acquireVsCodeApi'] = () => ({ postMessage: (m: unknown) => { posted.push(m); } });
+  });
+  await page.goto('/');
+  await page.getByTestId('opening').waitFor();
+  const bytes = await readFile(fixturePath('large/anon-250.docx'));
+  await page.evaluate((b64) => {
+    window.dispatchEvent(new MessageEvent('message', { data: { type: 'open', name: 'anon-250.docx', bytes: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) } }));
+  }, bytes.toString('base64'));
+  await page.getByTestId('editor').locator('.ProseMirror[aria-label="Document"]').waitFor({ timeout: 120_000 });
+  await page.waitForFunction(() => performance.getEntriesByName('docx4j:painted').length > 0, undefined, { timeout: 120_000 });
+  const typed = await typing(page);
+  // The message is handled as it is dispatched, so the time around the dispatch is the page's whole answer.
+  const backup = await page.evaluate(() => {
+    const posted = (window as unknown as { __posted: { type: string; update?: Uint8Array }[] }).__posted;
+    const times: number[] = [];
+    let size = 0;
+    for (let id = 1; id <= 11; id++) {
+      posted.length = 0;
+      const start = performance.now();
+      window.dispatchEvent(new MessageEvent('message', { data: { type: 'backup', id } }));
+      times.push(performance.now() - start);
+      size = posted.find((m) => m.type === 'backup')?.update?.byteLength ?? 0;
+    }
+    times.sort((a, b) => a - b);
+    const round = (ms: number): number => Math.round(ms * 10) / 10;
+    return { medianMs: round(times[5]!), maxMs: round(times[10]!), kB: Math.round(size / 1024) };
+  });
+  const report = await readReport();
+  report['backupMs'] = { ...backup, keystrokes: typed.keystrokes, thresholdMs: 200 };
+  console.log(`benchmark backupMs (255 pages, ${typed.keystrokes} keystrokes typed): the store encoded whole for VS Code's hot exit, median ${backup.medianMs} ms, max ${backup.maxMs} ms, ${backup.kB} kB (ED-014 P20: incremental over 200 ms)`);
+  await writeFile(OUT, JSON.stringify(report, null, 2) + '\n');
+  expect(backup.kB).toBeGreaterThan(0);
+});
+
+// ED-015 (S1): an edited save of the 255-page document, the export alone and with the self-check the application always runs,
+// timed in the page. A keystroke before each, so the main part is rebuilt and marshalled both times. The page takes no input
+// while a save runs, so these are also how long a person waits after Save.
+test('benchmark: an edited save of the 255-page document (ED-015; reported, never gating)', async ({ page }) => {
+  test.setTimeout(300_000);
+  await openAndMeasure(page, 'large/anon-250.docx');
+  const typeOne = async (key: string): Promise<void> => {
+    await page.evaluate(() => {
+      const v = (window as unknown as { docx4jEditor: { state: { doc: { childCount: number; child(i: number): { type: { name: string }; content: { size: number }; nodeSize: number } } }; caretAt(pos: number): void } }).docx4jEditor;
+      const doc = v.state.doc;
+      let pos = 0;
+      for (let i = 0; i < doc.childCount; i++) {
+        const node = doc.child(i);
+        if (i >= doc.childCount / 2 && node.type.name === 'paragraph' && node.content.size > 5) { v.caretAt(pos + 2); break; }
+        pos += node.nodeSize;
+      }
+    });
+    await page.keyboard.type(key);
+  };
+  const save = (selfCheck: boolean): Promise<{ ms: number; changed: boolean }> => page.evaluate(async (check) => {
+    const s = (window as unknown as { docx4jEditor: { session: { save(o: { selfCheck?: boolean }): Promise<{ changed: boolean }> } } }).docx4jEditor.session;
+    const t0 = performance.now();
+    const r = await s.save(check ? {} : { selfCheck: false });
+    return { ms: Math.round(performance.now() - t0), changed: r.changed };
+  }, selfCheck);
+  await typeOne('x');
+  const unchecked = await save(false);
+  await typeOne('y');
+  const checked = await save(true);
+  const report = await readReport();
+  report['saveEditedMs'] = unchecked.ms;
+  report['saveEditedCheckedMs'] = checked.ms;
+  console.log(`benchmark saveEditedMs (255 pages, one keystroke): the export alone ${unchecked.ms} ms; saveEditedCheckedMs, with the self-check, ${checked.ms} ms (ED-015)`);
+  await writeFile(OUT, JSON.stringify(report, null, 2) + '\n');
+  expect(unchecked.changed && checked.changed).toBe(true);
 });

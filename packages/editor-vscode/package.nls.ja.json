@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "VS Code で Word 文書を編集します。XML を見ながらコンテンツ コントロールと OpenDoPE テンプレート、変更履歴を扱え、エージェントの編集はエージェント自身の名前で記録されます。",
+  "untrusted": "制限モードでも文書を開いて編集できますが、文書のマクロは提供されず、エージェントのコンパニオンは起動されません。",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown を Word 文書として)",
+  "category": "docx4j editor",
+  "command.newDocument": "新しい Word 文書",
+  "command.newDocument.short": "Word 文書",
+  "command.commands": "コマンド",
+  "command.pasteText": "プレーン テキストとして貼り付け",
+  "command.copyAgentAddress": "エージェントの MCP アドレスのコピー",
+  "command.join": "ルームに参加…",
+  "mcp.label": "docx4j editor: エージェントのコンパニオン",
+  "config.agent.name": "エージェントの名前です。エージェントの変更履歴とコメント、参加者の一覧に表示されます。コンパニオンの次回の起動時、つまり次にウィンドウを開いたときに反映されます。",
+  "command.ask.setKey": "Anthropic API キーの設定…",
+  "command.ask.removeKey": "Anthropic API キーの削除",
+  "config.ask.baseUrl": "質問ボックスが Anthropic API キーを使って送信する先のアドレスです。空の場合は Anthropic 自身のアドレス (`https://api.anthropic.com`)、それ以外の場合は組織が運用するプロキシです。この設定は既定のプロファイルのユーザー設定にのみ保存され、ワークスペースの設定には保存されません。キーはここで指定した先に送られます。"
+}

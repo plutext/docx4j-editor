@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Modifier des documents Word dans VS Code : le XML sous les yeux, les contrôles de contenu et les modèles OpenDoPE, les modifications suivies, et les interventions d’un agent sous son propre nom.",
+  "untrusted": "En mode restreint, les documents s’ouvrent et peuvent être modifiés, mais les macros d’un document ne sont pas proposées et le compagnon de l’agent n’est pas démarré.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown en tant que document Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "Nouveau document Word",
+  "command.newDocument.short": "Document Word",
+  "command.commands": "Commandes",
+  "command.pasteText": "Coller en tant que texte brut",
+  "command.copyAgentAddress": "Copier l’adresse MCP de l’agent",
+  "command.join": "Rejoindre une salle…",
+  "mcp.label": "docx4j editor : le compagnon de l’agent",
+  "config.agent.name": "Le nom de l’agent : sur ses modifications suivies, sur ses commentaires et dans la liste des personnes. Il prend effet au prochain démarrage du compagnon, à la prochaine ouverture de la fenêtre.",
+  "command.ask.setKey": "Définir la clé API Anthropic…",
+  "command.ask.removeKey": "Supprimer la clé API Anthropic",
+  "config.ask.baseUrl": "L’adresse à laquelle la zone « Demander » envoie avec votre clé API Anthropic : celle d’Anthropic (`https://api.anthropic.com`) si elle est vide, sinon un proxy exploité par votre organisation. Seuls vos paramètres utilisateur la contiennent, dans le profil par défaut, jamais ceux d’un espace de travail : la clé part là où ce paramètre l’indique."
+}

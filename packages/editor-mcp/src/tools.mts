@@ -65,11 +65,19 @@ function logCall(host: ToolHost, tool: string, args: Structured, result: { isErr
 }
 
 /** The companion's version, which it reports to an MCP client (kept equal to package.json by scripts/set-version.mjs). */
-export const COMPANION_VERSION = '0.2.0';
+export const COMPANION_VERSION = '0.3.0';
+
+/**
+ * The most array elements and object members one call's arguments may hold. The SDK validates every element of a call
+ * before any tool runs, and with no limit one request inside the transport's 4 MiB could exhaust the process's memory
+ * (GHSA-46jr-4wx8-v453, fixed by this option in SDK 1.32.0, off unless set). A dropdown's items are the companion's only
+ * list of any length, so this is far above what a tool needs.
+ */
+export const MAX_TOOL_INPUT_ELEMENTS = 10_000;
 
 /** An MCP server with every tool registered over the companion. */
 export function createMcpServer(host: ToolHost, version = COMPANION_VERSION): McpServer {
-  const server = new McpServer({ name: 'docx4j-editor-mcp', version }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'docx4j-editor-mcp', version }, { instructions: INSTRUCTIONS, maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS });
   // Every tool's answer logged into its room as it goes back.
   const register = server.registerTool.bind(server);
   server.registerTool = ((name: string, config: Parameters<typeof register>[1], cb: (args: Structured, extra: unknown) => Promise<{ isError?: boolean; structuredContent?: Structured }>) =>

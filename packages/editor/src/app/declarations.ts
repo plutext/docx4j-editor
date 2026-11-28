@@ -5,7 +5,7 @@
 // other 93 modules are the size of the editor and stay out), loaded as raw strings on first use
 // into Monaco's extra libraries, with a synthetic package.json per package so bare imports
 // resolve, and a globals file declaring the console's bindings.
-import * as monaco from 'monaco-editor';
+import * as monaco from './monaco.js';
 
 const engine = import.meta.glob('../../../../node_modules/@docx4j/core-ts/dist/**/*.d.mts', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
 const objects = import.meta.glob([

@@ -33,8 +33,6 @@ export interface RoomLink {
   relay: string;
 }
 
-const ROOM_ID = /^[A-Za-z0-9_-]{16,128}$/;
-
 function randomBase64Url(bytes: number): string {
   const buffer = new Uint8Array(bytes);
   globalThis.crypto.getRandomValues(buffer);
@@ -70,21 +68,12 @@ export function roomLinkUrl(site: string, link: RoomLink): string {
   return `${base}#${fragment.toString()}`;
 }
 
-/** The room a link or a location's fragment names, when it names one well formed. */
-export function parseRoomLink(text: string): RoomLink | undefined {
-  const at = text.indexOf('#');
-  const params = new URLSearchParams(at >= 0 ? text.slice(at + 1) : text);
-  const room = params.get('room');
-  const token = params.get('token');
-  const relay = params.get('relay');
-  if (!room || !token || !relay || !ROOM_ID.test(room)) return undefined;
-  try {
-    const url = new URL(relay);
-    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') return undefined;
-  } catch {
-    return undefined;
-  }
-  return { room, token, relay };
+/** The room a link names (`host-protocol.ts`, where the extension shares it, ED-014 section 4.5). */
+export { parseRoomLink } from './host-protocol.js';
+
+/** Whether a relay is on this computer (`127.0.0.1`, `localhost`, `[::1]`): a companion's, in VS Code. */
+export function isLoopbackRelay(relay: string): boolean {
+  try { const { hostname } = new URL(relay); return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]'; } catch { return false; }
 }
 
 /** The relay's host, for the join question and the Share dialog ("through relay.example.org"). */

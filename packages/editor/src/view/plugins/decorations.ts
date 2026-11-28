@@ -110,6 +110,12 @@ function changed(session: EditorDocument, node: PMNode): boolean {
 /** Whether a paragraph's text needs per-script fonts: anything outside Latin, digits and punctuation. */
 const NON_LATIN = /[^ -ɏḀ-ỿ -⁯₠-⃏℀-⅏]/;
 
+/**
+ * A page boundary's spec says every event inside it is the story's (a header's, a footer's), never the body view's
+ * (`eventBelongsToView` asks each widget up to the view), without stopping the event's bubble (ED-014 section 4.4).
+ */
+const storyEvent = (): boolean => true;
+
 /** A page boundary widget: the footer slot, the label, the header slot; the mount fills the slots and is torn down with the widget. */
 function boundaryWidget(className: string, key: string, label: string, info: BoundaryInfo, mount: BoundaryMount | undefined, registry: Map<string, HTMLElement> | undefined, row?: { columns: number }): { dom: HTMLElement; destroy: () => void } {
   const above = widget('boundary-footer', '', 'div');
@@ -128,9 +134,11 @@ function boundaryWidget(className: string, key: string, label: string, info: Bou
     dom = widget(className, '', 'div');
     dom.append(above, text, below);
   }
-  // A story view inside the body's editable surface: its events are its own (the story's own
-  // view handles them before they reach this edge; the body view must never read a selection from inside).
-  for (const type of ['mousedown', 'mouseup', 'click', 'keydown', 'keypress', 'keyup', 'beforeinput', 'input']) dom.addEventListener(type, (e) => e.stopPropagation());
+  // A story view inside the body's editable surface: its events are its own. The widget's spec keeps the body view from
+  // reading any of them (`stopEvent`, below), so the keys go on to the page's listeners and, in VS Code, to the key gate and
+  // the workbench (ED-014 section 4.4): Ctrl+S saves from a header. The mouse events stop here, so that nothing around the
+  // body (its selection bar, its table and column plugins' listeners) reads a selection from inside.
+  for (const type of ['mousedown', 'mouseup', 'click']) dom.addEventListener(type, (e) => e.stopPropagation());
   registry?.set(key, dom);
   const unmount = mount ? mount({ above, below }, info) : () => {};
   const destroy = (): void => { unmount(); if (registry?.get(key) === dom) registry.delete(key); };
@@ -391,7 +399,7 @@ export function computeDecorations(session: EditorDocument, state: EditorState, 
     // The key leaves staleness out, so a body edit that mutes the boundaries below it keeps their widgets (and the header views in them); the plugin's view applies the status in place.
     const key = `page-${kind}-${below.page}${refsSig}`;
     boundaryStatus.set(key, { stale: muted, label });
-    if (!patch || token) decos.push(Decoration.widget(pos, () => withDestroy(boundaryWidget(`page-boundary${muted ? ' stale' : ''}`, key, label, info, options.boundary, options.boundaryRegistry, row)), { side: sideOf, key, destroy: destroyOf, ...(token ? { block: token } : {}) }));
+    if (!patch || token) decos.push(Decoration.widget(pos, () => withDestroy(boundaryWidget(`page-boundary${muted ? ' stale' : ''}`, key, label, info, options.boundary, options.boundaryRegistry, row)), { side: sideOf, key, destroy: destroyOf, stopEvent: storyEvent, ...(token ? { block: token } : {}) }));
   };
   if (story) {
     // A note or a header: its own list labels (ED-003 section 6.4), script fonts and field results; no pages, no sections. Small, and walked plain.
@@ -512,8 +520,8 @@ export function computeDecorations(session: EditorDocument, state: EditorState, 
     const key = `page-end-${page}${refsSig}`;
     boundaryStatus.set(key, { stale: muted, label: '' });
     if (!patch) {
-      decos.push(Decoration.widget(0, () => withDestroy(boundaryWidget('page-start', 'page-start', '', startInfo, options.boundary, options.boundaryRegistry)), { side: -1, key: 'page-start', destroy: destroyOf }));
-      decos.push(Decoration.widget(state.doc.content.size, () => withDestroy(boundaryWidget(`page-end${muted ? ' stale' : ''}`, key, '', info, options.boundary, options.boundaryRegistry)), { side: 1, key, destroy: destroyOf }));
+      decos.push(Decoration.widget(0, () => withDestroy(boundaryWidget('page-start', 'page-start', '', startInfo, options.boundary, options.boundaryRegistry)), { side: -1, key: 'page-start', destroy: destroyOf, stopEvent: storyEvent }));
+      decos.push(Decoration.widget(state.doc.content.size, () => withDestroy(boundaryWidget(`page-end${muted ? ' stale' : ''}`, key, '', info, options.boundary, options.boundaryRegistry)), { side: 1, key, destroy: destroyOf, stopEvent: storyEvent }));
     }
   }
   const set = patch && patchedSet ? patchedSet.add(state.doc, decos) : DecorationSet.create(state.doc, decos);

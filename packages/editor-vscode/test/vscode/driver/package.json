@@ -1,0 +1,31 @@
+{
+  "name": "docx4j-editor-test-driver",
+  "displayName": "docx4j editor: the suite's driver (packaged only for the suite's installed window)",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "plutext-test",
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./extension.js",
+  "files": [
+    "extension.js"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "docx4j-test",
+        "displayName": "docx4j editor's suite"
+      }
+    ]
+  }
+}

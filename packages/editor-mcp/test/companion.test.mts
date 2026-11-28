@@ -5,7 +5,7 @@
 // file into a room that a page joins through the printed link; the agent is in the room's
 // awareness as a page's user is, and what it writes reaches the page as its tracked change.
 import { afterEach, describe, expect, test } from 'vitest';
-import { mkdtemp, mkdir, rm, symlink, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, stat, symlink, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,15 +19,17 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { PlainText, Texts } from '@docx4j/core-ts';
 import { EditorDocument, newEditStore, agentLog, stopAgent, isAgentStopped, runCommand, trackedChangesOf } from '@docx4j/editor-model';
-import { createCompanion, existingUnderRoots, PathError, type Companion } from '../src/index.mjs';
-import { markedPage } from '../src/server.mjs';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { createCompanion, existingUnderRoots, PathError, type Companion, type CompanionOptions, type FromCompanion, type ToCompanion } from '../src/index.mjs';
+import { markedPage, bearsToken } from '../src/server.mjs';
+import { parseArguments, takeToken } from '../src/cli.mjs';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'editor-model', 'test', 'fixtures');
 const cleanups: (() => Promise<void> | void)[] = [];
 afterEach(async () => { for (const c of cleanups.splice(0).reverse()) await c(); });
 
 /** A companion on a free port over a fresh root holding `tracked-changes.docx`, with a one-page application. */
-async function start(): Promise<{ companion: Companion; base: string; root: string }> {
+async function start(extra: Partial<CompanionOptions> = {}): Promise<{ companion: Companion; base: string; root: string }> {
   const root = await mkdtemp(join(tmpdir(), 'companion-root-'));
   const app = await mkdtemp(join(tmpdir(), 'companion-app-'));
   const data = await mkdtemp(join(tmpdir(), 'companion-rooms-'));
@@ -35,7 +37,7 @@ async function start(): Promise<{ companion: Companion; base: string; root: stri
   await writeFile(join(root, 'lease.docx'), await readFile(join(fixtures, 'tracked-changes.docx')));
   await writeFile(join(root, 'notes.docx'), await readFile(join(fixtures, 'footnote.docx')));
   const lines: string[] = [];
-  const companion = createCompanion({ roots: [root], port: 0, app, data, log: (l) => lines.push(l) });
+  const companion = createCompanion({ roots: [root], port: 0, app, data, log: (l) => lines.push(l), ...extra });
   const base = await companion.listen();
   cleanups.push(() => rm(root, { recursive: true, force: true }), () => rm(app, { recursive: true, force: true }), () => rm(data, { recursive: true, force: true }));
   cleanups.push(() => companion.close());
@@ -474,5 +476,230 @@ describe('the reading tools in a room (ED-008 step 4)', () => {
     const accepted = (await call('outline', {})).data['blocks'] as { address: string; text: string }[];
     const landed = await call('set_format', { address: marked.address, anchor: 'change tracking', bold: true, if_text: accepted.find((b) => b.address === marked.address)!.text });
     expect(landed.isError, JSON.stringify(landed.data)).toBe(false);
+  });
+});
+
+/** A page's room on the companion's relay holding `tracked-changes.docx`, shared as the application's Share does; `origin` its page's. */
+async function sharedRoom(relay: string, origin?: string): Promise<{ room: string; token: string; session: EditorDocument; provider: HocuspocusProvider }> {
+  const bytes = new Uint8Array(await readFile(join(fixtures, 'tracked-changes.docx')));
+  const doc = new Y.Doc();
+  const session = await EditorDocument.open(bytes, { store: newEditStore(doc) });
+  const room = `room-${Math.random().toString(36).slice(2)}-0123456789`;
+  const token = `token-${Math.random().toString(36).slice(2)}-0123456789`;
+  const provider = await roomPeer(relay, room, `create:${token}`, doc, origin);
+  await session.share(bytes, 'lease.docx');
+  return { room, token, session, provider };
+}
+
+/** A provider in a room, with a page's `Origin` when given; resolves once synced, rejects when the relay refuses it. */
+function roomPeer(relay: string, room: string, token: string, doc: Y.Doc, origin?: string): Promise<HocuspocusProvider> {
+  const Polyfill = origin ? class extends WebSocket { constructor(address: string) { super(address, { headers: { Origin: origin } }); } } : WebSocket;
+  const socket = new HocuspocusProviderWebsocket({ url: relay, WebSocketPolyfill: Polyfill, maxAttempts: 1 });
+  return new Promise((resolve, reject) => {
+    const provider = new HocuspocusProvider({
+      websocketProvider: socket, name: room, document: doc, token,
+      onSynced: () => resolve(provider),
+      onAuthenticationFailed: ({ reason }) => reject(new Error(reason)),
+    });
+    provider.attach();
+    cleanups.push(() => { provider.destroy(); socket.destroy(); socket.connect = async () => undefined; });
+  });
+}
+
+const WEBVIEW = 'vscode-webview://0a1b2c3d4e5f6g7h8i9j';
+
+describe('started by the VS Code extension (ED-014 section 4.5)', () => {
+  test('the new arguments parsed; the token taken out of the environment', () => {
+    expect(parseArguments(['--http', '--ipc', '--allow-origin', WEBVIEW, '--allow-origin', 'https://editor.example', '--mcp-token-env', 'DOCX4J_MCP_TOKEN', '--port', '24402', '--relay-port', '22642']))
+      .toEqual({ roots: [], open: [], http: true, ipc: true, allowOrigins: [WEBVIEW, 'https://editor.example'], mcpTokenEnv: 'DOCX4J_MCP_TOKEN', port: 24402, relayPort: 22642 });
+    expect(parseArguments(['--root', '/tmp'])).toEqual({ roots: ['/tmp'], open: [], http: false, ipc: false });
+    expect(() => parseArguments(['--mcp-token-env', 'not a name'])).toThrow(/environment variable/);
+    const env: NodeJS.ProcessEnv = { DOCX4J_MCP_TOKEN: ' secret ' };
+    expect(takeToken(env, 'DOCX4J_MCP_TOKEN')).toBe('secret');
+    expect(env['DOCX4J_MCP_TOKEN']).toBeUndefined();
+    expect(() => takeToken({}, 'DOCX4J_MCP_TOKEN')).toThrow(/not set/);
+    expect(takeToken({}, undefined)).toBeUndefined();
+    expect(bearsToken('Bearer secret', 'secret')).toBe(true);
+    expect(bearsToken('bearer  secret ', 'secret')).toBe(true);
+    expect(bearsToken('Bearer secrets', 'secret')).toBe(false);
+    expect(bearsToken('Basic secret', 'secret')).toBe(false);
+    expect(bearsToken(undefined, 'secret')).toBe(false);
+  });
+
+  test('--allow-origin: the relay lets the origin in beside the local rule, and allowOrigin adds one while it runs; another stays refused', async () => {
+    const { companion } = await start({ allowOrigins: [WEBVIEW] });
+    await sharedRoom(companion.relay, WEBVIEW);
+    await sharedRoom(companion.relay, 'http://localhost:5173');
+    await expect(sharedRoom(companion.relay, 'vscode-webview://another')).rejects.toThrow(/Forbidden/);
+    companion.allowOrigin('vscode-webview://another');
+    await sharedRoom(companion.relay, 'vscode-webview://another');
+    await expect(sharedRoom(companion.relay, 'https://elsewhere.example')).rejects.toThrow(/Forbidden/);
+  });
+
+  test('--allow-origin at the probe\'s CORS and the invitation, for the companion\'s other uses (a page on a deployed site), the local rule kept', async () => {
+    const site = 'https://editor.example';
+    const { companion, base } = await start({ allowOrigins: [site] });
+    const cors = async (origin: string): Promise<string | undefined> => new Promise((resolve, reject) => {
+      const url = new URL('/companion/', base);
+      const req = request({ hostname: url.hostname, port: url.port, path: url.pathname, headers: { Origin: origin } }, (res) => { res.resume(); resolve(res.headers['access-control-allow-origin'] as string | undefined); });
+      req.on('error', reject);
+      req.end();
+    });
+    expect(await cors(site)).toBe(site);
+    expect(await cors('http://localhost:5173')).toBe('http://localhost:5173');
+    expect(await cors('https://elsewhere.example')).toBeUndefined();
+    const { room, token } = await sharedRoom(companion.relay);
+    const post = (origin: string) => get(base, '/companion/rooms', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify({ room, token }) });
+    expect((await post('https://elsewhere.example')).status).toBe(403);
+    expect((await post(site)).status).toBe(200);
+  });
+
+  test('--mcp-token-env: /mcp refused with 403 without the token and with a wrong one, served with it from any Origin; GET /mcp 405; an unknown path 404', async () => {
+    const { base } = await start({ mcpToken: 'the-token' });
+    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    const call = (headers: Record<string, string>) => get(base, '/mcp', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', ...headers }, body });
+    expect((await call({})).status).toBe(403);
+    expect((await call({ Authorization: 'Bearer wrong' })).status).toBe(403);
+    expect((await call({ Authorization: 'Bearer the-token' })).status).toBe(200);
+    // The token is the credential: an Origin, as Electron's network stack may send, changes nothing.
+    expect((await call({ Authorization: 'Bearer the-token', Origin: 'vscode-file://vscode-app' })).status).toBe(200);
+    expect((await call({ Origin: base })).status).toBe(403);
+    // The SDK's client, with the header.
+    const client = new Client({ name: 'token-test', version: '1' });
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { Authorization: 'Bearer the-token' } } }));
+    cleanups.push(() => client.close());
+    expect((await client.listTools()).tools.map((t) => t.name)).toContain('open');
+    // No stream is offered: VS Code's GET for notifications, and any other method, is answered 405 before the transport.
+    const stream = await get(base, '/mcp', undefined, { headers: { Accept: 'text/event-stream', Authorization: 'Bearer the-token' } });
+    expect(stream.status).toBe(405);
+    expect((await get(base, '/mcp', undefined, { method: 'DELETE', headers: { Authorization: 'Bearer the-token' } })).status).toBe(405);
+    // VS Code looks for sign-in metadata after a 403: the companion has none, and never answers with the editor's page.
+    expect((await get(base, '/.well-known/oauth-protected-resource')).status).toBe(404);
+    expect((await get(base, '/.well-known/oauth-authorization-server')).status).toBe(404);
+  });
+
+  test('without a token, as run by hand, /mcp still asks for none and refuses another page; GET /mcp is 405 there too', async () => {
+    const { base } = await start();
+    const stream = await get(base, '/mcp', undefined, { headers: { Accept: 'text/event-stream' } });
+    expect(stream.status).toBe(405);
+    const client = new Client({ name: 'no-token', version: '1' });
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`)));
+    cleanups.push(() => client.close());
+    expect((await client.listTools()).tools.length).toBeGreaterThan(0);
+  });
+
+  test('with no root, open and save refuse every path, and an invitation is still taken; setRoots gives the next call its roots', async () => {
+    const { companion, base, root } = await start({ roots: [] });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await companion.mcp().connect(serverSide);
+    const client = new Client({ name: 'no-root', version: '1' });
+    await client.connect(clientSide);
+    cleanups.push(() => client.close());
+    const opened = await client.callTool({ name: 'open', arguments: { path: join(root, 'lease.docx') } }) as { isError?: boolean; structuredContent?: { code?: string } };
+    expect(opened.isError).toBe(true);
+    expect(opened.structuredContent?.code).toBe('path.not_allowed');
+    const { room, token } = await sharedRoom(companion.relay);
+    expect((await get(base, '/companion/rooms', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, token }) })).status).toBe(200);
+    const saved = await client.callTool({ name: 'save', arguments: { document: room, output_path: join(root, 'out.docx') } }) as { isError?: boolean; structuredContent?: { code?: string } };
+    expect(saved.structuredContent?.code).toBe('path.not_allowed');
+    companion.setRoots([root]);
+    const again = await client.callTool({ name: 'open', arguments: { path: 'lease.docx' } }) as { isError?: boolean };
+    expect(again.isError).not.toBe(true);
+  });
+});
+
+describe('the channel, over the built bin (ED-014 section 4.5)', () => {
+  const cli = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli.mjs');
+
+  /** The bin spawned as the extension spawns it: `--http --ipc`, the token in the environment, stdout unread. */
+  async function spawnBin(args: string[]): Promise<{ child: ChildProcess; messages: FromCompanion[]; next: (match: (m: FromCompanion) => boolean) => Promise<FromCompanion>; exited: Promise<number | null>; root: string; other: string }> {
+    try { await stat(cli); } catch { throw new Error(`build the companion first (npm run build -w @docx4j/editor-mcp): no ${cli}`); }
+    const root = await mkdtemp(join(tmpdir(), 'channel-root-'));
+    const other = await mkdtemp(join(tmpdir(), 'channel-other-'));
+    const data = await mkdtemp(join(tmpdir(), 'channel-rooms-'));
+    await writeFile(join(root, 'lease.docx'), await readFile(join(fixtures, 'tracked-changes.docx')));
+    await writeFile(join(other, 'notes.docx'), await readFile(join(fixtures, 'footnote.docx')));
+    cleanups.push(() => rm(root, { recursive: true, force: true }), () => rm(other, { recursive: true, force: true }), () => rm(data, { recursive: true, force: true }));
+    const child = spawn(process.execPath, [cli, '--http', '--ipc', '--port', '0', '--data', data, '--root', root, ...args.map((a) => a.replace('<other>', other))], {
+      env: { ...process.env, CHANNEL_TOKEN: 'channel-token' }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+    });
+    child.stderr!.resume();
+    const messages: FromCompanion[] = [];
+    const waiters: { match: (m: FromCompanion) => boolean; resolve: (m: FromCompanion) => void }[] = [];
+    child.on('message', (m: FromCompanion) => {
+      messages.push(m);
+      for (const w of [...waiters]) if (w.match(m)) { waiters.splice(waiters.indexOf(w), 1); w.resolve(m); }
+    });
+    const exited = new Promise<number | null>((resolve) => child.once('exit', (code) => resolve(code)));
+    cleanups.push(async () => { if (child.exitCode === null && child.signalCode === null) { child.kill('SIGKILL'); await exited; } });
+    const next = (match: (m: FromCompanion) => boolean): Promise<FromCompanion> => {
+      const seen = messages.find(match);
+      if (seen) return Promise.resolve(seen);
+      return new Promise((resolve) => waiters.push({ match, resolve }));
+    };
+    return { child, messages, next, exited, root, other };
+  }
+
+  test('listening; allowOrigin taking effect while it runs; roots replacing the roots; invite answered; close ending it with the rooms written', async () => {
+    const bin = await spawnBin(['--mcp-token-env', 'CHANNEL_TOKEN', '--root', '<other>']);
+    const send = (m: ToCompanion): void => { bin.child.send(m); };
+    const listening = await bin.next((m) => m.type === 'listening') as Extract<FromCompanion, { type: 'listening' }>;
+    expect(listening.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+    expect(listening.relay).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/);
+    // The token from the environment.
+    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    expect((await get(listening.url, '/mcp', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body })).status).toBe(403);
+    // allowOrigin: refused before, let in after.
+    await expect(sharedRoom(listening.relay, WEBVIEW)).rejects.toThrow(/Forbidden/);
+    send({ type: 'allowOrigin', origin: WEBVIEW });
+    let shared: Awaited<ReturnType<typeof sharedRoom>> | undefined;
+    for (let i = 0; i < 50 && !shared; i++) {
+      try { shared = await sharedRoom(listening.relay, WEBVIEW); } catch { await new Promise((r) => setTimeout(r, 50)); }
+    }
+    expect(shared).toBeDefined();
+    // invite: the agent joins the page's room; a wrong token is refused with the invitation's status.
+    send({ type: 'invite', id: 7, room: shared!.room, token: 'wrong' });
+    expect(await bin.next((m) => m.type === 'invited' && m.id === 7)).toMatchObject({ type: 'invited', id: 7, status: 403 });
+    send({ type: 'invite', id: 8, room: shared!.room, token: shared!.token });
+    expect(await bin.next((m) => m.type === 'invited' && m.id === 8)).toEqual({ type: 'invited', id: 8 });
+    const agentIn = (): boolean => [...shared!.provider.awareness!.getStates().values()].some((st) => (st['user'] as { agent?: boolean } | undefined)?.agent === true);
+    await until(agentIn, 5000, 'the agent in the page\'s awareness');
+    // roots: the next open sees them.
+    const client = new Client({ name: 'channel', version: '1' });
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${listening.url}/mcp`), { requestInit: { headers: { Authorization: 'Bearer channel-token' } } }));
+    cleanups.push(() => client.close());
+    const call = async (path: string) => await client.callTool({ name: 'open', arguments: { path } }) as { isError?: boolean; structuredContent?: { code?: string } };
+    expect((await call(join(bin.other, 'notes.docx'))).isError).not.toBe(true);
+    send({ type: 'roots', roots: [bin.root] });
+    await until(() => false, 100, '').catch(() => undefined);
+    expect((await call(join(bin.other, 'notes.docx'))).structuredContent?.code).toBe('path.not_allowed');
+    expect((await call(join(bin.root, 'lease.docx'))).isError).not.toBe(true);
+    // close: the companion writes its rooms and exits by itself.
+    send({ type: 'close' });
+    expect(await bin.exited).toBe(0);
+  });
+
+  test('the starter gone: the channel closes and the companion exits by itself, its ports free', async () => {
+    // An intermediate process starts the companion with a channel and is then killed, as VS Code's extension host is.
+    try { await stat(cli); } catch { throw new Error(`build the companion first (npm run build -w @docx4j/editor-mcp): no ${cli}`); }
+    const data = await mkdtemp(join(tmpdir(), 'channel-rooms-'));
+    cleanups.push(() => rm(data, { recursive: true, force: true }));
+    const starter = spawn(process.execPath, ['-e', `
+      const { spawn } = require('node:child_process');
+      const child = spawn(process.execPath, [${JSON.stringify(cli)}, '--http', '--ipc', '--port', '0', '--data', ${JSON.stringify(data)}], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+      child.on('message', (m) => { if (m.type === 'listening') process.stdout.write(JSON.stringify({ pid: child.pid, ...m }) + '\\n'); });
+      setInterval(() => {}, 1000);
+    `], { stdio: ['ignore', 'pipe', 'inherit'] });
+    let out = '';
+    const started = new Promise<{ pid: number; url: string; relay: string }>((resolve) => starter.stdout!.on('data', (c: Buffer) => { out += c.toString(); if (out.includes('\n')) resolve(JSON.parse(out.split('\n')[0]!) as { pid: number; url: string; relay: string }); }));
+    cleanups.push(() => { try { starter.kill('SIGKILL'); } catch { /* gone */ } });
+    const { pid, url, relay } = await started;
+    cleanups.push(() => { try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ } });
+    starter.kill('SIGKILL');
+    const alive = (): boolean => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    await until(() => !alive(), 10_000, 'the companion to exit');
+    const free = (port: number): Promise<boolean> => new Promise((resolve) => { const s = createNetServer(); s.once('error', () => resolve(false)); s.listen(port, '127.0.0.1', () => s.close(() => resolve(true))); });
+    expect(await free(Number(new URL(url).port))).toBe(true);
+    expect(await free(Number(new URL(relay).port))).toBe(true);
   });
 });

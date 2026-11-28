@@ -2,11 +2,13 @@
 
 Three of the workspace packages are published to npm: `@docx4j/editor-model` (the headless model),
 `@docx4j/editor-relay` (the co-editing relay) and `@docx4j/editor-mcp` (the companion, which bundles the built
-application). `@docx4j/editor`, the application itself, is private: it is a site, not a package. All four share one
-version.
+application). `@docx4j/editor`, the application itself, is private: it is a site, not a package. The VS Code
+extension (`packages/editor-vscode`, `plutext.docx4j-editor`) is published to the Visual Studio Marketplace and to
+Open VSX. All five share one version.
 
-They are published from GitHub Actions (`.github/workflows/push-to-npm.yml`) when a GitHub release is published, as
-`@docx4j/core-ts` and `@docx4j/generated-objects-ts` are.
+They are published from GitHub Actions when a GitHub release is published: the npm packages by
+`.github/workflows/push-to-npm.yml`, as `@docx4j/core-ts` and `@docx4j/generated-objects-ts` are, and the extension
+by `.github/workflows/push-to-marketplace.yml` (see "The VS Code extension" below).
 
 ## Publishing target
 
@@ -25,6 +27,44 @@ the next patch version.
 
 Each package ships `dist/`, `README.md`, `LICENSE` and `THIRD-PARTY-NOTICES.txt`, which its `prepack` writes
 (`scripts/check-licences.mjs`). The companion's `dist/app` is the built application, without its source maps.
+
+## The VS Code extension
+
+The extension is published through **trusted publishing** on both registries, as the npm packages are: no token is
+stored anywhere.
+
+- **The Visual Studio Marketplace.** The publisher `plutext` (marketplace.visualstudio.com/manage) has a policy on
+  its Trusted Publishing page: repository owner `plutext`, repository `docx4j-editor`, workflow
+  `push-to-marketplace.yml`, no environment. The workflow runs `vsce publish --oidc`. The first successful token
+  exchange activates the policy for good.
+- **Open VSX** (Cursor, Windsurf, VSCodium, Theia). The namespace `plutext` has a trusted publisher, registered at
+  open-vsx.org/user-settings/trusted-publishers, naming the same owner, repository and workflow, with no
+  environment. The workflow runs `ovsx publish --trusted-publishing`. `ovsx` is EPL-2.0, so the workflow runs it
+  with `npx` at a pinned version, and no package depends on it.
+
+Renaming the workflow file breaks both until each registry's setting is changed to match.
+
+**The file published is the one CI made.** Every `test.yml` run packages the VSIX in its Node 22 job, checks it
+(`packages/editor-vscode/scripts/package.mjs`) and keeps it as the artifact `vsix`. On a release,
+`push-to-marketplace.yml`:
+1. finds a `test.yml` run that passed for the release's commit;
+2. downloads its VSIX and checks it again, the tag against its version included;
+3. attaches it to the GitHub release;
+4. publishes it to the Marketplace and then to Open VSX.
+
+It never packages again, so the VSIX conveyed is built from the source of the public commit it was released from.
+GitHub keeps an artifact for 90 days. To release an older commit, run its `test.yml` again first.
+
+Each publish runs whether or not the other one succeeded. Each skips a version its registry already has, so after a
+failure, fix the cause and use **Re-run failed jobs**. A Marketplace version, like an npm version, cannot be
+published twice, so a problem found afterwards ships as the next patch version. The manifest's `"preview": true`
+shows the listing as Preview.
+
+**The first version (0.3.0).** The Marketplace's documentation does not say whether trusted publishing can create an
+extension that does not exist yet. If the Marketplace refuses it, upload the VSIX attached to the release by hand on
+the publisher's management page (**New extension**, then **Visual Studio Code**). Every later version is the
+workflow's. Open VSX's documentation says no more. If it refuses the first version, upload the same file by hand at
+open-vsx.org/publish, signed in as an owner of the `plutext` namespace. That needs no token either.
 
 ## Dependencies
 
@@ -68,8 +108,10 @@ npm install
 rm -rf node_modules packages/*/node_modules packages/*/dist && npm ci
 npm run check-licences && npm run locales:check && npm run typecheck && npm run build && npm test
 for p in editor-model editor-relay editor-mcp; do (cd packages/$p && npm pack --dry-run); done
+npm run package -w docx4j-editor   # the VSIX, packaged and checked (CI's is the one published)
 
-# 4. Commit, tag and push (the tag is v and the version; the workflow checks it), then wait for test.yml
+# 4. Commit, tag and push (the tag is v and the version; the workflows check it), then wait for test.yml, whose
+#    VSIX the extension's workflow publishes
 git commit -am "Version 0.1.1"
 git tag -a v0.1.1 -m "Version 0.1.1"
 git push origin main v0.1.1
@@ -83,6 +125,12 @@ Publishing the release runs `push-to-npm.yml`. It installs with `npm ci` and sto
 packages' version. Then it runs the licence and message checks, typecheck, build and tests, checks the tree is
 unchanged, and packs and publishes the three packages in dependency order, with provenance.
 
+It also runs `push-to-marketplace.yml`, which attaches the VSIX to the release and publishes it to both registries
+(see "The VS Code extension"). When it has run, install the extension from each listing and use it: in VS Code from the
+Marketplace, and in VSCodium or Cursor from Open VSX. Open a document, edit it, save it, and Invite the agent. A new
+version can take some minutes to appear on the Marketplace.
+
 If the workflow fails before anything is published, fix the problem, move the tag, and re-run it from the Actions tab
 (or delete and recreate the release). If it fails part way through publishing, or only the publish fails (the E403
-above), fix the cause and use **Re-run failed jobs**: a package already published at the version is skipped.
+above), fix the cause and use **Re-run failed jobs**: a package already published at the version is skipped. The
+extension's workflow is re-run the same way.

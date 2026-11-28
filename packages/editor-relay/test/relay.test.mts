@@ -247,6 +247,28 @@ describe('the relay (ED-004 section 4.2)', () => {
     const named = await start({ origins: ['https://editor.example'] });
     await peer(named.url, roomId(), `create:${token()}`, { origin: 'https://editor.example' }).synced;
   });
+
+  test('allowOrigins adds to the local rule and to origins, and allowOrigin adds one while it runs; any other origin is still refused (ED-014 section 4.5)', async () => {
+    const refused = async (p: { synced: Promise<void> }): Promise<boolean> =>
+      (await Promise.race([p.synced.then(() => 'synced'), new Promise((r) => setTimeout(() => r('refused'), 500))])) === 'refused';
+    const webview = 'vscode-webview://1a2b3c4d5e6f';
+    const local = await start({ allowOrigins: [webview] });
+    await peer(local.url, roomId(), `create:${token()}`, { origin: webview }).synced;
+    await peer(local.url, roomId(), `create:${token()}`, { origin: 'http://127.0.0.1:4174' }).synced;
+    expect(await refused(peer(local.url, roomId(), `create:${token()}`, { origin: 'https://elsewhere.example' }))).toBe(true);
+    expect(await refused(peer(local.url, roomId(), `create:${token()}`, { origin: 'vscode-webview://another' }))).toBe(true);
+
+    const named = await start({ origins: ['https://editor.example'], allowOrigins: [webview] });
+    await peer(named.url, roomId(), `create:${token()}`, { origin: 'https://editor.example' }).synced;
+    await peer(named.url, roomId(), `create:${token()}`, { origin: webview }).synced;
+    // `origins` still replaces the local rule.
+    expect(await refused(peer(named.url, roomId(), `create:${token()}`, { origin: 'http://localhost:5173' }))).toBe(true);
+
+    const later = 'vscode-webview://later';
+    expect(await refused(peer(named.url, roomId(), `create:${token()}`, { origin: later }))).toBe(true);
+    named.relay.allowOrigin(later);
+    await peer(named.url, roomId(), `create:${token()}`, { origin: later }).synced;
+  });
 });
 
 describe('the command line', () => {

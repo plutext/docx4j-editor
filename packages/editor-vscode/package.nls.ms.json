@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Sunting dokumen Word dalam VS Code: XML sentiasa kelihatan, kawalan kandungan dan templat OpenDoPE, perubahan dijejak, dan suntingan ejen di bawah namanya sendiri.",
+  "untrusted": "Dalam Mod Terhad, dokumen boleh dibuka dan disunting, tetapi makro dokumen tidak ditawarkan dan pendamping ejen tidak dimulakan.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown sebagai dokumen Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "Dokumen Word Baharu",
+  "command.newDocument.short": "Dokumen Word",
+  "command.commands": "Arahan",
+  "command.pasteText": "Tampal sebagai Teks Biasa",
+  "command.copyAgentAddress": "Salin Alamat MCP Ejen",
+  "command.join": "Sertai Bilik…",
+  "mcp.label": "docx4j editor: pendamping ejen",
+  "config.agent.name": "Nama ejen: pada perubahan dijejak dan ulasannya, serta dalam senarai peserta. Ia berkuat kuasa apabila pendamping dimulakan seterusnya, iaitu kali berikutnya tetingkap dibuka.",
+  "command.ask.setKey": "Tetapkan Kunci API Anthropic…",
+  "command.ask.removeKey": "Alih Keluar Kunci API Anthropic",
+  "config.ask.baseUrl": "Alamat yang menerima permintaan kotak Tanya bersama kunci API Anthropic anda: alamat Anthropic sendiri (`https://api.anthropic.com`) jika kosong, atau proksi yang dikendalikan oleh organisasi anda. Hanya tetapan pengguna anda yang menyimpannya, dalam profil Lalai, bukan tetapan ruang kerja: kunci dihantar ke mana sahaja tetapan ini menunjuk."
+}

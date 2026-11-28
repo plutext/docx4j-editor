@@ -2,13 +2,13 @@
 //
 // Share and Join (ED-004 section 4.4). Share shows the room's link with a Copy button and says
 // what sharing means: anyone with the link can edit, and the relay's host can read what is
-// shared. Join takes a pasted link.
+// shared; in VS Code, that the link works on this computer only (ED-014 P41). Join takes a pasted link.
 import { useState } from 'react';
 import { Dialog } from './Dialogs.js';
 import { useT } from './i18n.js';
 import { parseRoomLink, relayHost, type RoomLink } from './room.js';
 
-export function ShareDialog({ url, relay, onClose }: { url: string; relay: string; onClose: () => void }) {
+export function ShareDialog({ url, relay, local = false, onClose }: { url: string; relay: string; local?: boolean; onClose: () => void }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   const copy = (): void => {
@@ -18,6 +18,7 @@ export function ShareDialog({ url, relay, onClose }: { url: string; relay: strin
     <Dialog title={t('share.title')} onClose={onClose} onOk={onClose}>
       <p>{t('share.anyone')}</p>
       <p data-testid="share-relay">{t('share.relay', { host: relayHost(relay) })}</p>
+      {local && <p data-testid="share-local">{t('share.local')}</p>}
       <label className="field share-link">
         <span>{t('share.link')}</span>
         <input type="text" readOnly value={url} data-testid="share-link" onFocus={(e) => e.currentTarget.select()} />

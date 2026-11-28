@@ -8,8 +8,7 @@
 // import() when the Developer perspective first shows it, so the Edit perspective's bundle stays
 // what it is. Devtools-level trust: nothing runs without Run.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as monaco from 'monaco-editor';
-import '../monaco-env.js';
+import * as monaco from '../monaco.js';
 import type { EditorDocument } from '@docx4j/editor-model';
 import type { DocxEditorView } from '../../view/DocxEditorView.js';
 import { runScript, editorBinding, type RunOutcome } from '../console-run.js';

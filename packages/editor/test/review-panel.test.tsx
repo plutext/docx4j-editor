@@ -8,17 +8,18 @@
 // what changed. The store lists again only when a transaction touches a revision. Next and
 // previous visit every entry once and go round. A change's key through the view's live map is the
 // key a map rebuilt from the store gives.
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { EditorDocument, trackedChangesOf, runCommand, type TrackedChangeInfo } from '@docx4j/editor-model';
+import { EditorDocument, trackedChangesOf, runCommand, type TrackedChangeInfo, type CommentThread } from '@docx4j/editor-model';
 import { DocxEditorView } from '../src/view/DocxEditorView.js';
 import ReviewPanel from '../src/app/panels/ReviewPanel.js';
 import { valueWords } from '../src/app/review-words.js';
-import { ReviewStore, reviewEntries, stepEntry, stepTarget, currentEntry, selectEntry, resolveEntry, type ReviewEntry } from '../src/app/review.js';
+import { ReviewStore, reviewEntries, stepEntry, stepTarget, currentEntry, selectEntry, resolveEntry, resolveAll, type ReviewEntry } from '../src/app/review.js';
+import { BannerStore, unresolvedComments, type BannerCounts } from '../src/app/banner.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -256,16 +257,93 @@ describe('the review panel (ED-005 section 6.5)', () => {
 });
 
 describe('the Review perspective offered (ED-005 section 6.7)', () => {
+  const nothing = { opaque: [], tracked: { shown: 0, preserved: {} }, pageBreakMarkers: 0, comments: 0 };
+
   test('a document with comments and nothing else read-only or tracked has a banner, so it is offered Review', async () => {
     const { diagnosticSummary } = await import('../src/app/labels.js');
-    expect(diagnosticSummary({ opaque: [], tracked: { shown: 0, preserved: {} }, pageBreakMarkers: 0, comments: 2 }, 0)).toBe('2 comments.');
-    expect(diagnosticSummary({ opaque: [], tracked: { shown: 0, preserved: {} }, pageBreakMarkers: 0, comments: 0 }, 0)).toBe('');
+    expect(diagnosticSummary({ ...nothing, comments: 2 }, { changes: 0, preserved: 0, comments: 2 })).toBe('2 unresolved comments.');
+    expect(diagnosticSummary({ ...nothing, comments: 2 }, { changes: 0, preserved: 0, comments: 0 })).toBe('');
+    // Before the comments part is read, nothing is said of them.
+    expect(diagnosticSummary({ ...nothing, comments: 2 }, { changes: 0, preserved: 0, comments: undefined })).toBe('');
   });
 
   test('the banner counts the changes it is given, not the file\'s revision elements (ED-005 section 12.113)', async () => {
     const { diagnosticSummary } = await import('../src/app/labels.js');
-    expect(diagnosticSummary({ opaque: [], tracked: { shown: 677, preserved: {} }, pageBreakMarkers: 0, comments: 0 }, 131)).toBe('131 tracked changes.');
-    expect(diagnosticSummary({ opaque: [], tracked: { shown: 3, preserved: {} }, pageBreakMarkers: 0, comments: 0 }, 0)).toBe('');
+    expect(diagnosticSummary({ ...nothing, tracked: { shown: 677, preserved: {} } }, { changes: 131, preserved: 0, comments: 0 })).toBe('131 tracked changes.');
+    expect(diagnosticSummary({ ...nothing, tracked: { shown: 3, preserved: {} } }, { changes: 0, preserved: 0, comments: 0 })).toBe('');
+    expect(diagnosticSummary({ ...nothing, tracked: { shown: 3, preserved: { tblPrChange: 3 } } }, { changes: 0, preserved: 1, comments: 0 })).toBe('1 tracked change shown in Word only.');
+  });
+});
+
+// Jason, 2026-11-28: the banner had counted the file as opened, and stood unchanged through every change accepted or
+// rejected and every comment resolved. It follows the document now, over the panel's and the margin's stores.
+describe('the banner\'s counts follow the document', () => {
+  const settled = async (store: BannerStore): Promise<BannerCounts> => {
+    await vi.waitFor(() => expect(store.snapshot().comments).toBeDefined());
+    return store.snapshot();
+  };
+
+  test('a change accepted, then the rest rejected: the count falls as the panel\'s does, each time told', async () => {
+    const { session, editor } = await open('revisions/revisions-word15.docx');
+    const store = new BannerStore(editor);
+    let told = 0;
+    const off = store.subscribe(() => told++);
+    const first = await settled(store);
+    const panel = new ReviewStore(editor, session);
+    const listed = panel.entries.filter((e) => e.kind === 'change');
+    expect(first.changes).toBe(listed.length);
+    expect(first.preserved).toBe(panel.entries.length - listed.length);
+    expect(first.changes).toBeGreaterThan(1);
+    const before = told;
+    expect(resolveEntry(editor, session, listed[0]!, 'accept')).toBeGreaterThan(0);
+    // Counted a moment after, not on the transaction (section 12.134 item 5).
+    expect(store.snapshot()).toBe(first);
+    await vi.waitFor(() => expect(store.snapshot().changes).toBeLessThan(first.changes));
+    expect(told).toBeGreaterThan(before);
+    resolveAll(editor, session, 'reject');
+    await vi.waitFor(() => expect(store.snapshot()).toMatchObject({ changes: 0, preserved: 0 }));
+    off();
+    editor.destroy();
+  });
+
+  test('comments: a resolved one is not counted, a reopened one is again, a deleted thread goes with its replies', async () => {
+    const { editor } = await open('comments-two.docx');
+    const store = new BannerStore(editor);
+    const off = store.subscribe(() => {});
+    expect((await settled(store)).comments).toBe(2);
+    await act(async () => { await editor.runAsync('comment.setResolved', { id: '0', value: true }); });
+    await vi.waitFor(() => expect(store.snapshot().comments).toBe(1));
+    await act(async () => { await editor.runAsync('comment.setResolved', { id: '0', value: false }); });
+    await vi.waitFor(() => expect(store.snapshot().comments).toBe(2));
+    await act(async () => { await editor.runAsync('comment.delete', { id: '1' }); });
+    await vi.waitFor(() => expect(store.snapshot().comments).toBe(1));
+    off();
+    editor.destroy();
+  });
+
+  test('typing is not counted on each keystroke: one count once the typing pauses', async () => {
+    const { editor } = await open('revisions/revisions-word15.docx');
+    const store = new BannerStore(editor);
+    const off = store.subscribe(() => {});
+    const first = await settled(store);
+    await act(async () => { await editor.runAsync('document.setChangeTrackingMode', { value: 'TrackAll' }); });
+    // Inside plain text, away from every change.
+    let at = -1;
+    editor.state.doc.descendants((n, pos) => {
+      if (at < 0 && n.isText && n.text!.length > 4 && !n.marks.some((m) => m.type.name === 'insertion' || m.type.name === 'deletion')) at = pos + 2;
+      return at < 0;
+    });
+    for (let i = 0; i < 5; i++) editor.view.dispatch(editor.state.tr.insertText('x', at + i));
+    expect(store.snapshot()).toBe(first);
+    await vi.waitFor(() => expect(store.snapshot().changes).toBe(first.changes + 1));
+    off();
+    editor.destroy();
+  });
+
+  test('a thread counts its replies, and none of them once its top comment is resolved', () => {
+    const thread = (done: boolean, replies: unknown[] = []): CommentThread => ({ done, replies }) as unknown as CommentThread;
+    expect(unresolvedComments([thread(false, [thread(false), thread(false)]), thread(true, [thread(false)]), thread(false)])).toBe(4);
+    expect(unresolvedComments([])).toBe(0);
   });
 });
 

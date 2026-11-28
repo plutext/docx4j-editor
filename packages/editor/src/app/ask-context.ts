@@ -13,6 +13,11 @@ import type { EditorSurface } from '../view/surface.js';
 import { stylesInUse } from '../view/css.js';
 import { blocksIn, xmlOf } from './xml.js';
 import { FENCED_FORMS } from './ask-answer.js';
+import type { AskRequestData } from './host-protocol.js';
+import { chatPrompt } from './ask-send.js';
+
+/** The request as one message for a chat, or for a VS Code model, which has no system role (ED-014 section 4.6). */
+export { chatPrompt };
 
 export interface AskContext {
   selectionXml: string;
@@ -26,12 +31,7 @@ export interface AskContext {
   declarationsCapped: boolean;
 }
 
-export interface AskRequest {
-  model: string;
-  system: string;
-  prompt: string;
-  maxTokens: number;
-}
+export type AskRequest = AskRequestData;
 
 /** The declarations the model reads: the content API's classes an answer's script or fragment would use, and the shim. */
 const declarationFiles = import.meta.glob([
@@ -128,15 +128,6 @@ export function systemPrompt(ctx: AskContext): string {
 export function userMessage(prompt: string, ctx: AskContext): string {
   const selection = ctx.blocks === 0 ? '(nothing selected)' : `Selected text:\n${ctx.selectionText === '' ? '(a caret, no text)' : ctx.selectionText}\n\nSelected XML (${ctx.blocks} block${ctx.blocks === 1 ? '' : 's'}):\n${ctx.selectionXml}`;
   return `${prompt.trim()}\n\n${selection}`;
-}
-
-/**
- * The request as one message for a chat (claude.ai on any plan, or any Claude chat): a chat has
- * no system field, so the contract and the context come first and the question after a rule. The
- * user copies it, pastes it, and pastes the answer back (ED-003 section 11.25).
- */
-export function chatPrompt(request: AskRequest): string {
-  return `${request.system}\n\n---\n\n${request.prompt}`;
 }
 
 export function buildRequest(model: string, prompt: string, ctx: AskContext, maxTokens = 4096): AskRequest {

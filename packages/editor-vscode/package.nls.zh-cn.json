@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "在 VS Code 中编辑 Word 文档：XML 一目了然，支持内容控件和 OpenDoPE 模板、修订，以及智能体以自己的名义所做的编辑。",
+  "untrusted": "在受限模式下，文档可以打开和编辑，但不会提供文档中的宏，也不会启动智能体的配套服务。",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor（将 Markdown 作为 Word 文档）",
+  "category": "docx4j editor",
+  "command.newDocument": "新建 Word 文档",
+  "command.newDocument.short": "Word 文档",
+  "command.commands": "命令",
+  "command.pasteText": "粘贴为纯文本",
+  "command.copyAgentAddress": "复制智能体的 MCP 地址",
+  "command.join": "加入房间…",
+  "mcp.label": "docx4j editor：智能体的配套服务",
+  "config.agent.name": "智能体的名称：显示在它的修订、批注和房间人员列表中。在配套服务下次启动时（即下次打开窗口时）生效。",
+  "command.ask.setKey": "设置 Anthropic API 密钥…",
+  "command.ask.removeKey": "删除 Anthropic API 密钥",
+  "config.ask.baseUrl": "“提问”框携带您的 Anthropic API 密钥发送请求的地址：留空时为 Anthropic 自己的地址（`https://api.anthropic.com`），否则为贵组织运行的代理。此设置只保存在默认配置文件的用户设置中，绝不会保存在工作区设置中：密钥会发送到此处指定的任何地址。"
+}

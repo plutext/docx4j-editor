@@ -1,6 +1,6 @@
 {
   "name": "@docx4j/editor-model",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The headless editable projection of a docx over @docx4j/core-ts: a ProseMirror schema, import from and export to the typed tree with the original elements preserved, held in a Yjs document. Runs in Node and the browser; the editor UI is @docx4j/editor.",
   "license": "GPL-3.0-or-later",
   "repository": {
@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@docx4j/core-ts": "^0.9.0",
-    "@docx4j/generated-objects-ts": "^0.9.0",
+    "@docx4j/generated-objects-ts": "^0.9.1",
     "@xmldom/xmldom": "^0.9.7",
     "fontoxpath": "^3.34.0",
     "lib0": "^0.2.99",

@@ -77,7 +77,8 @@ export function hasFileSystemAccess(): boolean {
 
 /** The Markdown file a document was made from (ED-011 section 3.8): read and watched, never written. */
 export interface SourceFile {
-  handle: FileHandle;
+  /** The handle the application watches; none where the host watches the file itself (VS Code, ED-014 section 3.3). */
+  handle?: FileHandle;
   name: string;
   /** The Markdown file's modification time when it was read, where the document's own is the conversion's. */
   lastModified: number;
@@ -150,7 +151,7 @@ export function download(bytes: Uint8Array, name: string): void {
 }
 
 /** Export in a form with the self-check; on a mismatch, the bytes for diagnosis come without it, in that form. */
-async function exportChecked(session: EditorDocument, format: SaveFormat): Promise<{ result: SaveResult } | { error: SelfCheckError; diagnosis: Uint8Array; format: SaveFormat }> {
+export async function exportChecked(session: EditorDocument, format: SaveFormat): Promise<{ result: SaveResult } | { error: SelfCheckError; diagnosis: Uint8Array; format: SaveFormat }> {
   try {
     return { result: await session.save({ format }) };
   } catch (e) {

@@ -5,11 +5,12 @@ sample document.
 
 A Word docx document editor in the browser, including:
 
+- **Developer tools:** the document's parts and XML (editable), a console for the content API, and macros.
 - **Review:** tracked changes, written as Word writes them, with a review panel to accept or reject.
 - **Comments:** made, replied to, resolved and deleted in a margin.
-- **Developer tools:** the document's parts and XML (editable), a console for the content API, and macros.
+- **Android & iPhone:** a review focused UI (editing, accept/reject changes, comments).
+- **Content controls:** including a Template perspective for OpenDoPE templates.
 - **An AI agent as a peer,** every edit it makes a tracked change.
-- **Content controls:** a Template perspective for OpenDoPE templates.
 - **Co-editing:** several people in one document through a relay.
 
 The application is a static site: it runs entirely in the browser and needs no server of its own.
@@ -113,6 +114,8 @@ Code or Claude Desktop to it, and `docs/developer/agent.md` describes the tools.
 | `npm run typecheck` | TypeScript, strict, across every package |
 | `npm test` | the unit and integration suites (vitest) in every package. The model's takes under two minutes, most of it its benchmark, which reports figures and never fails |
 | `npm run e2e` | the browser suite (Playwright, Chromium) against the built application; once, first: `npm run e2e:install -w @docx4j/editor` |
+| `npm run test:vscode -w docx4j-editor` | the VS Code extension's suite, in a real VS Code driven over the DevTools Protocol, after `npm run build`; it downloads VS Code 1.147.0 the first time. Without a display, run it under `xvfb-run -a` |
+| `npm run vsix` | the build, then the VS Code extension's VSIX, checked, in `packages/editor-vscode/` |
 | `npm run locales:check` | the message files of the twenty languages, against the code and each other |
 | `npm run check-licences` | every dependency under a permissive licence (MIT, BSD, Apache-2.0); it also writes each npm package's `THIRD-PARTY-NOTICES.txt`, and the site's build writes the site's |
 
@@ -125,6 +128,11 @@ The packages, under `packages/`:
 - **`editor`** (`@docx4j/editor`): the React application and its view.
 - **`editor-relay`** (`@docx4j/editor-relay`): the co-editing relay, a Hocuspocus server.
 - **`editor-mcp`** (`@docx4j/editor-mcp`): the agent's companion.
+- **`editor-vscode`** (`docx4j-editor`): the editor as a VS Code extension, in preview, on the
+  [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=plutext.docx4j-editor) and
+  [Open VSX](https://open-vsx.org/extension/plutext/docx4j-editor). Its
+  [README](packages/editor-vscode/README.md) is for people, and
+  [`docs/developer/vscode-extension.md`](docs/developer/vscode-extension.md) for working on it.
 
 ## Documentation
 
@@ -143,6 +151,7 @@ For contributors, in [`docs/developer/`](docs/developer):
 - [`architecture.md`](docs/developer/architecture.md): the three layers and the rules the projection keeps;
 - [`agent.md`](docs/developer/agent.md): the agent's tools;
 - [`localisation.md`](docs/developer/localisation.md): the interface's languages;
+- [`vscode-extension.md`](docs/developer/vscode-extension.md): the VS Code extension: its build, its suites and its VSIX;
 - [`word-divergences.md`](docs/developer/word-divergences.md): where the editor knowingly differs from Word;
 - [`upstream-limitations.md`](docs/developer/upstream-limitations.md): third-party limitations and their
   workarounds;

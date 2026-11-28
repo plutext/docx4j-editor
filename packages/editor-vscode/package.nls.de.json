@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Word-Dokumente in VS Code bearbeiten: das XML im Blick, Inhaltssteuerelemente und OpenDoPE-Vorlagen, nachverfolgte Änderungen und die Bearbeitungen eines Agenten unter seinem eigenen Namen.",
+  "untrusted": "Im eingeschränkten Modus lassen sich Dokumente öffnen und bearbeiten, aber die Makros eines Dokuments werden nicht angeboten, und der Begleitdienst des Agenten wird nicht gestartet.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown als Word-Dokument)",
+  "category": "docx4j editor",
+  "command.newDocument": "Neues Word-Dokument",
+  "command.newDocument.short": "Word-Dokument",
+  "command.commands": "Befehle",
+  "command.pasteText": "Als Nur-Text einfügen",
+  "command.copyAgentAddress": "MCP-Adresse des Agenten kopieren",
+  "command.join": "Einem Raum beitreten…",
+  "mcp.label": "docx4j editor: der Begleitdienst des Agenten",
+  "config.agent.name": "Der Name des Agenten: an seinen nachverfolgten Änderungen, an seinen Kommentaren und in der Personenliste. Er gilt ab dem nächsten Start des Begleitdienstes, also ab dem nächsten Öffnen des Fensters.",
+  "command.ask.setKey": "Anthropic-API-Schlüssel festlegen…",
+  "command.ask.removeKey": "Anthropic-API-Schlüssel entfernen",
+  "config.ask.baseUrl": "Die Adresse, an die das Feld „Fragen“ mit Ihrem Anthropic-API-Schlüssel sendet: wenn sie leer ist, die von Anthropic selbst (`https://api.anthropic.com`), sonst ein Proxy, den Ihre Organisation betreibt. Nur Ihre Benutzereinstellungen im Standardprofil enthalten sie, nie die eines Arbeitsbereichs: Der Schlüssel geht dorthin, wohin diese Einstellung zeigt."
+}

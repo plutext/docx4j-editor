@@ -91,6 +91,21 @@ export async function persistedStore(id: string): Promise<{ store: EditStore; pe
   return { store: newEditStore(ydoc), persistence };
 }
 
+/** What keeps a store, as the application holds it: y-indexeddb's persistence, or nothing. */
+export interface StoreKeeper {
+  destroy(): void;
+}
+
+/**
+ * A store kept in memory alone, for a host whose own backups hold the session (VS Code's hot exit, ED-014 P8 and P20);
+ * with `update`, a backup's state applied first, as y-indexeddb applies a kept one.
+ */
+export function memoryStore(update?: Uint8Array): { store: EditStore; persistence: StoreKeeper } {
+  const ydoc = new Y.Doc();
+  if (update && update.byteLength > 0) Y.applyUpdate(ydoc, update);
+  return { store: newEditStore(ydoc), persistence: { destroy: () => undefined } };
+}
+
 /**
  * How long a check waits for a tab that is going away. Chromium and Firefox had let go before the next page's first
  * script in all 16 reloads measured, but nothing promises that order, and an offer missed on a reload leaves a person

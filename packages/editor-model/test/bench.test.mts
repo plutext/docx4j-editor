@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The benchmark in Node (ED-002 section 7.5; ED-001 decision 10): the 255-page document under
-// `fixtures/large`, opened, saved with the self-check, its headers read; the footnote panel's
+// `fixtures/large`, opened, saved with the self-check, its headers read, saved after an edit (ED-015); the footnote panel's
 // model work timed over `footnote.docx`. Printed, never asserted: the tests pass whatever the
 // numbers say. SuperDoc's two seconds for 400 pages (ED-001 Appendix C) is the aspiration.
 import { beforeAll, describe, test, expect } from 'vitest';
@@ -36,6 +36,29 @@ describe('benchmark (reported, never gating)', () => {
     expect(save.result.changed).toBe(false);
     const aspiration = 2000;
     console.log(`benchmark aspiration (ED-001 Appendix C): ${aspiration} ms to open 400 pages; open took ${open.ms} ms for 255`);
+  }, 120_000);
+
+  test('anon-250.docx: an edited save, the export alone and with the self-check (ED-015)', async () => {
+    const { runCommand } = await import('../src/index.mjs');
+    const session = await EditorDocument.open(new Uint8Array(await readFile(LARGE)));
+    // One character typed in a paragraph near the middle, so the main part is rebuilt and marshalled; another before the
+    // second save, so it is an edited save too.
+    const type = (text: string): void => {
+      const doc = session.doc;
+      let pos = 0;
+      for (let i = 0; i < doc.childCount; i++) {
+        const node = doc.child(i);
+        if (i >= doc.childCount / 2 && node.type.name === 'paragraph' && node.content.size > 5) break;
+        pos += node.nodeSize;
+      }
+      expect(runCommand(session, 'insertText', { text }, { from: pos + 2 }).ok).toBe(true);
+    };
+    type('x');
+    const unchecked = await timed('saveEditedMs: an edited save, the export alone', () => session.save({ selfCheck: false }));
+    expect(unchecked.result.changed).toBe(true);
+    type('y');
+    const checked = await timed('saveEditedCheckedMs: an edited save with the self-check', () => session.save());
+    expect(checked.result.changed).toBe(true);
   }, 120_000);
 
   test('anon-250.docx: the text compared with its own bytes, as the disk-offer banner does (ED-011 section 3.4)', async () => {
@@ -123,6 +146,27 @@ describe('benchmark (reported, never gating)', () => {
     const second = await timed('an agent call, the second', () => call('The second paragraph the agent writes.'));
     expect(second.result.changed).toBe(true);
   }, 180_000);
+
+  test('anon-250.docx: the store encoded whole, as a hot-exit backup in VS Code is (ED-014 P20: 200 ms the threshold)', async () => {
+    const Y = await import('yjs');
+    const { runCommand } = await import('../src/index.mjs');
+    const session = await EditorDocument.open(new Uint8Array(await readFile(LARGE)));
+    // Typed in, in a paragraph near the middle. One command: each headless command reads `session.doc`, which rebuilds the
+    // 255 pages from the store (CLAUDE.md), so thirty would take minutes; the encode depends on the store, not the count.
+    let at = -1;
+    const doc = session.doc;
+    doc.forEach((node, pos, index) => { if (at < 0 && index >= doc.childCount / 2 && node.type.name === 'paragraph' && node.content.size > 20) at = pos + 5; });
+    expect(runCommand(session, 'insertText', { text: 'Typed into the store before its backup. ' }, { from: at }).ok).toBe(true);
+    const times: number[] = [];
+    let size = 0;
+    for (let i = 0; i < 11; i++) {
+      const start = performance.now();
+      size = Y.encodeStateAsUpdate(session.store.ydoc).byteLength;
+      times.push(performance.now() - start);
+    }
+    times.sort((a, b) => a - b);
+    console.log(`benchmark backupMs (255 pages, typed in): the store encoded whole, median ${times[5]!.toFixed(1)} ms, max ${times[10]!.toFixed(1)} ms, ${Math.round(size / 1024)} kB`);
+  }, 120_000);
 
   test('footnote.docx: the notes read and projected', async () => {
     const session = await EditorDocument.open(await fixture('footnote.docx'));

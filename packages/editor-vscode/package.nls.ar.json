@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "تحرير مستندات Word في VS Code: مع عرض XML، وعناصر التحكم في المحتوى وقوالب OpenDoPE، والتغييرات المتعقبة، وتعديلات الوكيل باسمه الخاص.",
+  "untrusted": "في الوضع المقيَّد، تُفتح المستندات ويمكن تحريرها، لكن لا تُعرض وحدات الماكرو في المستند ولا تُشغَّل الخدمة المرافقة للوكيل.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown كمستند Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "مستند Word جديد",
+  "command.newDocument.short": "مستند Word",
+  "command.commands": "الأوامر",
+  "command.pasteText": "لصق كنص عادي",
+  "command.copyAgentAddress": "نسخ عنوان MCP الخاص بالوكيل",
+  "command.join": "الانضمام إلى غرفة…",
+  "mcp.label": "docx4j editor: الخدمة المرافقة للوكيل",
+  "config.agent.name": "اسم الوكيل: يظهر على تغييراته المتعقبة وتعليقاته وفي قائمة الأشخاص. ويسري عند التشغيل التالي للخدمة المرافقة، أي في المرة التالية التي تُفتح فيها النافذة.",
+  "command.ask.setKey": "تعيين مفتاح Anthropic API…",
+  "command.ask.removeKey": "إزالة مفتاح Anthropic API",
+  "config.ask.baseUrl": "العنوان الذي يُرسل إليه مربع «اسأل» مع مفتاح Anthropic API الخاص بك: عنوان Anthropic نفسها (`https://api.anthropic.com`) عندما يكون فارغًا، وإلا فخادم وكيل (proxy) تشغّله مؤسستك. لا تحتفظ به إلا إعدادات المستخدم لديك، في ملف التعريف الافتراضي، ولا تحتفظ به إعدادات مساحة العمل أبدًا: فالمفتاح يذهب إلى حيث يشير هذا الإعداد."
+}

@@ -83,6 +83,12 @@ stdout stays silent: it belongs to MCP.
 | `--open` | none | share a file into a room at start and print its link, repeatable |
 | `--http` | off | MCP over streamable HTTP under `/mcp` only, not stdio: the companion started on its own |
 | `--max-inline-chars` | 200000 | the cap on a result's characters; past it a result is truncated, or written to the call's `output_path` |
+| `--allow-origin` | none | a page origin allowed beside pages on this machine, repeatable: at the probe, the invitation and the relay (a page on a deployed site; VS Code's webview) |
+| `--mcp-token-env` | none | the environment variable holding a token: `/mcp` then serves only a request with `Authorization: Bearer <token>`, and answers 403 otherwise. Without it, `/mcp` asks for none and refuses a page of another origin |
+| `--ipc` | off | speak over the IPC channel of the process that started the companion, and exit when it closes (the VS Code extension's way) |
+
+`/mcp` takes POST alone. A GET for a notification stream, and any other method, is answered 405, the streamable
+HTTP answer for a server that offers no stream: the companion is stateless and would send nothing down one.
 
 **The agent is always tracked**, whatever the document's own setting, and never changes that
 setting (ED-005 section 8.5). The agent joins each room as a page does, over loopback to the

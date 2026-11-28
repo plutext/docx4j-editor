@@ -17,3 +17,11 @@ node_modules
 .claude/scheduled_tasks.lock
 # the third-party notices, written by `npm run check-licences` and each package's prepack (scripts/notices.mjs)
 /packages/*/THIRD-PARTY-NOTICES.txt
+# the application the VS Code extension ships, copied from the editor's dist by its build (ED-014 section 4.3)
+/packages/editor-vscode/app
+# the companion the VS Code extension ships, bundled from the companion's dist by its build (ED-014 section 4.5, P36)
+/packages/editor-vscode/companion
+# VS Code downloaded for the extension's suite (ED-014 P31)
+/packages/editor-vscode/.vscode-test
+# the VSIX `npm run vsix` makes (ED-014 section 4.7, P47); CI keeps it as an artifact
+/packages/editor-vscode/*.vsix

@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Edytuj dokumenty programu Word w VS Code: z podglądem kodu XML, kontrolkami zawartości i szablonami OpenDoPE, śledzonymi zmianami oraz edycjami agenta pod jego własną nazwą.",
+  "untrusted": "W trybie ograniczonym dokumenty można otwierać i edytować, ale makra dokumentu nie są oferowane, a usługa towarzysząca agenta nie jest uruchamiana.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown jako dokument programu Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "Nowy dokument programu Word",
+  "command.newDocument.short": "Dokument programu Word",
+  "command.commands": "Polecenia",
+  "command.pasteText": "Wklej jako zwykły tekst",
+  "command.copyAgentAddress": "Kopiuj adres MCP agenta",
+  "command.join": "Dołącz do pokoju…",
+  "mcp.label": "docx4j editor: usługa towarzysząca agenta",
+  "config.agent.name": "Nazwa agenta: przy jego śledzonych zmianach, przy jego komentarzach i na liście osób. Zaczyna obowiązywać przy następnym uruchomieniu usługi towarzyszącej, czyli przy następnym otwarciu okna.",
+  "command.ask.setKey": "Ustaw klucz API Anthropic…",
+  "command.ask.removeKey": "Usuń klucz API Anthropic",
+  "config.ask.baseUrl": "Adres, na który pole „Zapytaj” wysyła żądania z Twoim kluczem API Anthropic: gdy jest pusty, adres samego Anthropic (`https://api.anthropic.com`), w przeciwnym razie serwer proxy prowadzony przez Twoją organizację. Przechowują go tylko Twoje ustawienia użytkownika w profilu domyślnym, nigdy ustawienia obszaru roboczego: klucz trafia tam, gdzie wskazuje to ustawienie."
+}

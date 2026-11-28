@@ -1,7 +1,7 @@
 {
   "name": "docx4j-ts-editor",
   "private": true,
-  "description": "A web docx editor over @docx4j/core-ts: the headless projection (@docx4j/editor-model), the application (@docx4j/editor), the co-editing relay (@docx4j/editor-relay) and the MCP companion (@docx4j/editor-mcp). docs/developer/architecture.md is the design.",
+  "description": "A web docx editor over @docx4j/core-ts: the headless projection (@docx4j/editor-model), the application (@docx4j/editor), the co-editing relay (@docx4j/editor-relay), the MCP companion (@docx4j/editor-mcp) and the VS Code extension (docx4j-editor, packages/editor-vscode). docs/developer/architecture.md is the design.",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "workspaces": [
@@ -11,15 +11,16 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "npm run build -w @docx4j/editor-model && npm run build -w @docx4j/editor-relay && npm run build -w @docx4j/editor && npm run build -w @docx4j/editor-mcp",
-    "typecheck": "npm run build -w @docx4j/editor-model && npm run typecheck -w @docx4j/editor-model && npm run typecheck -w @docx4j/editor-relay && npm run build -w @docx4j/editor-relay && npm run typecheck -w @docx4j/editor-mcp && npm run build -w @docx4j/editor-mcp && npm run typecheck -w @docx4j/editor",
-    "test": "npm run build -w @docx4j/editor-model && npm run build -w @docx4j/editor-relay && npm run test -w @docx4j/editor-model && npm run test -w @docx4j/editor-relay && npm run test -w @docx4j/editor && npm run build -w @docx4j/editor-mcp && npm run test -w @docx4j/editor-mcp",
+    "build": "npm run build -w @docx4j/editor-model && npm run build -w @docx4j/editor-relay && npm run build -w @docx4j/editor && npm run build -w @docx4j/editor-mcp && npm run build -w docx4j-editor",
+    "typecheck": "npm run build -w @docx4j/editor-model && npm run typecheck -w @docx4j/editor-model && npm run typecheck -w @docx4j/editor-relay && npm run build -w @docx4j/editor-relay && npm run typecheck -w @docx4j/editor-mcp && npm run build -w @docx4j/editor-mcp && npm run typecheck -w @docx4j/editor && npm run typecheck -w docx4j-editor",
+    "test": "npm run build -w @docx4j/editor-model && npm run build -w @docx4j/editor-relay && npm run test -w @docx4j/editor-model && npm run test -w @docx4j/editor-relay && npm run test -w @docx4j/editor && npm run build -w @docx4j/editor-mcp && npm run test -w @docx4j/editor-mcp && npm run test -w docx4j-editor",
     "e2e": "npm run build && npm run e2e -w @docx4j/editor",
     "dev": "npm run build -w @docx4j/editor-model && npm run build -w @docx4j/editor-relay && npm run dev -w @docx4j/editor",
     "check-licences": "node scripts/check-licences.mjs",
-    "locales:check": "npm run build -w @docx4j/editor-model && npm run build -w @docx4j/editor-relay && npm run locales:check -w @docx4j/editor",
+    "locales:check": "npm run build -w @docx4j/editor-model && npm run build -w @docx4j/editor-relay && npm run locales:check -w @docx4j/editor && npm run locales:check -w docx4j-editor",
     "relay": "npm run build -w @docx4j/editor-relay && node packages/editor-relay/dist/cli.mjs",
     "companion": "npm run build && node packages/editor-mcp/dist/cli.mjs",
+    "vsix": "npm run build && npm run package -w docx4j-editor",
     "word-session": "npm run build && node packages/editor-mcp/scripts/review-for-word.mjs && node packages/editor-model/test/fixtures/build/measure-base.mjs && node packages/editor-model/test/fixtures/build/ids-for-word.mjs"
   },
   "devDependencies": {

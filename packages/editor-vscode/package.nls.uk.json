@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "Редагуйте документи Word у VS Code: з XML на виду, елементами керування вмістом і шаблонами OpenDoPE, виправленнями та правками агента під його власним ім’ям.",
+  "untrusted": "В обмеженому режимі документи відкриваються й редагуються, але макроси документа не пропонуються, а сервіс-компаньйон агента не запускається.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown як документ Word)",
+  "category": "docx4j editor",
+  "command.newDocument": "Новий документ Word",
+  "command.newDocument.short": "Документ Word",
+  "command.commands": "Команди",
+  "command.pasteText": "Вставити як звичайний текст",
+  "command.copyAgentAddress": "Скопіювати MCP-адресу агента",
+  "command.join": "Приєднатися до кімнати…",
+  "mcp.label": "docx4j editor: сервіс-компаньйон агента",
+  "config.agent.name": "Ім’я агента: у його виправленнях, примітках і в списку людей у кімнаті. Набуває чинності під час наступного запуску сервісу-компаньйона, тобто коли вікно відкриється наступного разу.",
+  "command.ask.setKey": "Задати ключ Anthropic API…",
+  "command.ask.removeKey": "Видалити ключ Anthropic API",
+  "config.ask.baseUrl": "Адреса, на яку поле «Запитання» надсилає запити з вашим ключем Anthropic API: власна адреса Anthropic (`https://api.anthropic.com`), якщо порожньо, інакше проксі, яким керує ваша організація. Цей параметр зберігається лише у ваших параметрах користувача, у профілі за замовчуванням, і ніколи в параметрах робочої області: ключ буде надіслано туди, куди він вказує."
+}

@@ -22,6 +22,19 @@ export interface KeptPlace {
   markup: MarkupView;
 }
 
+const isTextPlace = (v: unknown): v is TextPlace => {
+  const p = v as Partial<TextPlace> | null;
+  return !!p && typeof p === 'object' && Number.isInteger(p.paragraph) && Number.isInteger(p.offset);
+};
+
+/** Whether data from elsewhere (another page's hand-over, ED-014 P25) is a place this module kept. */
+export function isKeptPlace(value: unknown): value is KeptPlace {
+  const v = value as Partial<KeptPlace> | null;
+  return !!v && typeof v === 'object' && Array.isArray(v.paragraphs) && v.paragraphs.every((p) => typeof p === 'string')
+    && isTextPlace(v.caret) && isTextPlace(v.anchor) && typeof v.top === 'number' && Number.isFinite(v.top)
+    && (v.markup === 'all' || v.markup === 'accepted' || v.markup === 'original');
+}
+
 /** What became of the caret's text. */
 export interface PlaceRestored {
   found: Landing['found'];

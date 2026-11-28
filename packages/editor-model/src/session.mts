@@ -48,7 +48,7 @@ export const PARTS_REVISION = 'partsRevision';
 export const PARTS_ORIGIN = 'parts';
 
 /** The editor's version, written to `app.xml` as `AppVersion` (kept equal to package.json by scripts/set-version.mjs). */
-export const EDITOR_VERSION = '0.2.0';
+export const EDITOR_VERSION = '0.3.0';
 
 export interface OpenOptions {
   schema?: Schema;

@@ -14,7 +14,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { WordprocessingMLPackage, Texts, PlainText, MarkdownExporter } from '@docx4j/core-ts';
 import { createCompanion, type AgentRoom, type Companion } from '../src/index.mjs';
-import { COMPANION_VERSION } from '../src/tools.mjs';
+import { COMPANION_VERSION, MAX_TOOL_INPUT_ELEMENTS } from '../src/tools.mjs';
 import { PHASE0 as phase0, suitePresent, loadRunner } from '../../editor-model/test/text-extraction-suite.mjs';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'editor-model', 'test', 'fixtures');
@@ -106,6 +106,16 @@ describe('the tools (docs/developer/agent.md, ED-005 section 8.9 step F3)', () =
       'set_format', 'set_style', 'track_changes',
     ]);
     for (const t of tools) expect(t.inputSchema.type).toBe('object');
+  });
+
+  test('a call whose arguments hold more elements than MAX_TOOL_INPUT_ELEMENTS is refused before any validation (GHSA-46jr-4wx8-v453)', async () => {
+    const document = await openLease(env);
+    const over = Array.from({ length: MAX_TOOL_INPUT_ELEMENTS + 1 }, () => 'headers');
+    const refused = await env.client.callTool({ name: 'outline', arguments: { document, include: over } }).then(
+      (r) => JSON.stringify(r), (e: unknown) => String(e));
+    expect(refused).toMatch(/more than the maximum of 10000 elements/);
+    // A call within it is answered as before.
+    await ok(env, 'outline', { document, include: ['headers'] });
   });
 
   test('open: a room and its link; the same file answers the same room; a path outside the roots or missing is refused', async () => {

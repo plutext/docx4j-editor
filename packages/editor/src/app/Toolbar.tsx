@@ -259,22 +259,25 @@ export interface ToolbarProps {
   onControl?: () => void;
   /** Fit the table's columns to its content (ED-007): the application measures and reports. */
   onFitTable?: () => void;
+  /**
+   * Hands the application the opening of the link dialog while the toolbar is shown, and null when it goes: Ctrl+K is the
+   * surfaces' shortcut (`Mod-k`), so that in VS Code the key gate keeps it from VS Code's chords (ED-014 section 4.4).
+   */
+  bindLink?: (open: (() => void) | null) => void;
 }
 
-export function Toolbar({ editor, styles, fonts, preset = 'full', controls = false, onControl, onFitTable }: ToolbarProps) {
+export function Toolbar({ editor, styles, fonts, preset = 'full', controls = false, onControl, onFitTable, bindLink }: ToolbarProps) {
   const t = useT();
   // One memoised reading per transaction (ED-003 section 8.2): the toolbar re-renders only when it changes.
   const reading = useToolbarReading(editor);
   const fmt: SelectionFormatting = reading.fmt;
   const [dialog, setDialog] = useState<'paragraph' | 'section' | 'link' | 'table' | 'insertTable' | null>(null);
-  // Ctrl+K opens the hyperlink dialog from anywhere in the editor (the view's keymap hands it up).
+  // Ctrl+K opens the hyperlink dialog from any editing surface: the surfaces' shortcut calls what is bound here.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k' && e.target instanceof Element && e.target.closest('.docx-editor')) { e.preventDefault(); setDialog('link'); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+    if (!bindLink) return;
+    bindLink(() => setDialog('link'));
+    return () => bindLink(null);
+  }, [bindLink]);
   const font = fmt.font;
   const para = fmt.paragraph;
   const value = <T,>(v: T | 'Mixed', fallback: T): T => (v === 'Mixed' ? fallback : v);

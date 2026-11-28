@@ -7,8 +7,7 @@
 // on `window.docx4jXmlEditors` by test id, for the browser tests: text set through it is not
 // retyped through Monaco's auto-closing, as `setConsoleScript` does for the console.
 import { useEffect, useRef, useState } from 'react';
-import * as monaco from 'monaco-editor';
-import '../monaco-env.js';
+import * as monaco from '../monaco.js';
 import { formatXml, foldingRangesOf, type XmlFocus } from '../xml.js';
 import { t, useT } from '../i18n.js';
 

@@ -11,7 +11,7 @@
 // which is the MCP protocol's (vocabulary section 6). MCP (step F3, `docs/developer/agent.md`) is served
 // over streamable HTTP under `/mcp`, and over stdio by the bin (`cli.mts`).
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { basename, dirname, extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,6 +51,20 @@ export interface CompanionOptions {
   maxInlineChars?: number;
   /** Where the companion reports what it does: never stdout (default stderr). */
   log?: (line: string) => void;
+  /**
+   * Page origins allowed beside the local-page rule (ED-014 section 4.5, P38): at the probe's CORS, the invitation and the
+   * relay. VS Code's webview (`vscode-webview://…`) reaches only the relay, since its page asks the extension for the rest;
+   * the probe and the invitation serve the companion's other uses, a page on a deployed site.
+   */
+  allowOrigins?: readonly string[];
+  /**
+   * MCP's credential (ED-014 P39): with one, `/mcp` serves only a request bearing `Authorization: Bearer <token>`, whatever
+   * its `Origin`, and refuses the rest with 403. Without one, as run by hand, `/mcp` asks for none and refuses a page of
+   * another origin.
+   */
+  mcpToken?: string;
+  /** Told when the relay's state changes after it first listens (`relayState`): the channel's `relay` (ED-014 section 4.5). */
+  onRelayState?: (state: 'up' | 'restarting' | 'down') => void;
 }
 
 /** A document the agent has open: its room, the headless session that holds it, and its link. */
@@ -82,6 +96,10 @@ export interface Companion {
   open(path: string): Promise<AgentRoom>;
   /** Join a room on this relay a person shared, with its token (the invitation, `POST <companion>/rooms`). */
   join(room: string, token: string): Promise<AgentRoom>;
+  /** The folders the agent may open files under, from now on: a workspace's folders changing (ED-014 section 4.5). */
+  setRoots(roots: readonly string[]): void;
+  /** One more page origin allowed, at the probe, the invitation and the relay, from now on (ED-014 section 4.5). */
+  allowOrigin(origin: string): void;
   /** The companion as the tools see it. */
   readonly host: ToolHost;
   /** A new MCP server over the companion's rooms (one per transport). */
@@ -153,11 +171,28 @@ class InviteError extends Error {
   }
 }
 
+/** Why an invitation (`join`) was refused, as `POST <companion>/rooms` answers it: its status and its message. */
+export function invitationRefusal(e: unknown): { status: number; error: string } {
+  return { status: e instanceof InviteError ? e.status : 500, error: (e as Error)?.message ?? String(e) };
+}
+
+/** Whether an `Authorization` header bears this token (`Bearer <token>`), compared in constant time. */
+export function bearsToken(header: string | undefined, token: string): boolean {
+  const match = /^Bearer\s+(\S+)\s*$/i.exec(header ?? '');
+  if (!match) return false;
+  const digest = (text: string): Buffer => createHash('sha256').update(text).digest();
+  return timingSafeEqual(digest(match[1]!), digest(token));
+}
+
 export function createCompanion(options: CompanionOptions): Companion {
   const name = options.name ?? 'Claude';
   const host = options.host ?? '127.0.0.1';
   const log = options.log ?? ((line: string) => { process.stderr.write(`${line}\n`); });
   const rooms = new Map<string, AgentRoom>();
+  let roots: readonly string[] = [...options.roots];
+  const allowed = new Set(options.allowOrigins ?? []);
+  /** A page on this machine (the local rule), or one of the origins allowed. */
+  const pageAllowed = (origin: string | undefined): boolean => localOrigin(origin) || (origin !== undefined && allowed.has(origin));
   let relayUrl = '';
   let relayWorker: Worker | undefined;
   let relayState: 'up' | 'restarting' | 'down' = 'up';
@@ -174,7 +209,8 @@ export function createCompanion(options: CompanionOptions): Companion {
   const toolHost: ToolHost = {
     name,
     allowResolve: options.allowResolve === true,
-    roots: options.roots,
+    // Read at each call, so a workspace's folders changing reaches the next `open` and `save`.
+    get roots() { return roots; },
     maxInlineChars: options.maxInlineChars ?? 200_000,
     rooms,
     open: (path) => open(path),
@@ -184,11 +220,21 @@ export function createCompanion(options: CompanionOptions): Companion {
   /**
    * MCP over streamable HTTP, stateless: a server and a transport per request, the rooms the
    * companion's. A request from a page (an `Origin`) other than the companion's own is refused:
-   * another local site must not drive the agent's tools.
+   * another local site must not drive the agent's tools. With a token (ED-014 P39), only a request
+   * bearing it is served, whatever its `Origin`: the token is the credential.
+   *
+   * Only POST reaches the transport (ED-014 section 9.16). A stateless transport answers a GET for
+   * notifications with an event stream on a transport made for that request alone, so nothing ever
+   * comes down it, and VS Code's GET would hold a server, a transport and a socket for the window's
+   * life. 405 is the streamable HTTP answer for a server that offers no stream, and VS Code and the
+   * SDK's client then stop asking.
    */
   async function serveMcp(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (req.method !== 'POST') { res.writeHead(405, { Allow: 'POST' }).end(); return; }
     const origin = req.headers.origin;
-    if (origin !== undefined && origin !== base) { res.writeHead(403).end('Forbidden'); return; }
+    if (options.mcpToken !== undefined) {
+      if (!bearsToken(req.headers.authorization, options.mcpToken)) { res.writeHead(403).end('Forbidden'); return; }
+    } else if (origin !== undefined && origin !== base) { res.writeHead(403).end('Forbidden'); return; }
     const server = createMcpServer(toolHost);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on('close', () => { void transport.close(); void server.close(); });
@@ -216,12 +262,12 @@ export function createCompanion(options: CompanionOptions): Companion {
     const url = new URL(req.url ?? '/', base);
     const origin = req.headers.origin;
     if (url.pathname === '/companion' || url.pathname === '/companion/' || url.pathname === '/companion/rooms') {
-      if (localOrigin(origin)) res.setHeader('Access-Control-Allow-Origin', origin!);
+      if (pageAllowed(origin)) res.setHeader('Access-Control-Allow-Origin', origin!);
       if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'Content-Type' }).end(); return; }
       if (url.pathname === '/companion/rooms') {
-        // An invitation only from this companion's pages or another page on this machine, as the relay allows.
+        // An invitation only from this companion's pages, another page on this machine, or an origin allowed, as the relay allows.
         if (req.method !== 'POST') { res.writeHead(405).end(); return; }
-        if (origin !== undefined && !localOrigin(origin)) { res.writeHead(403).end('Forbidden'); return; }
+        if (origin !== undefined && !pageAllowed(origin)) { res.writeHead(403).end('Forbidden'); return; }
         await serveInvite(req, res);
         return;
       }
@@ -252,7 +298,7 @@ export function createCompanion(options: CompanionOptions): Companion {
   /** A relay worker on a port: its address once it listens, or why it did not. */
   function startWorker(port: number): Promise<{ worker: Worker; url?: string; code?: string; message?: string }> {
     return new Promise((resolve) => {
-      const worker = new Worker(RELAY_WORKER, { workerData: { data: options.data ?? './.docx4j-editor-rooms', port, host } });
+      const worker = new Worker(RELAY_WORKER, { workerData: { data: options.data ?? './.docx4j-editor-rooms', port, host, allowOrigins: [...allowed] } });
       const failed = (e: Error): void => resolve({ worker, message: e.message });
       worker.once('error', failed);
       worker.once('message', (m: { type: string; url?: string; code?: string; message?: string }) => {
@@ -272,7 +318,7 @@ export function createCompanion(options: CompanionOptions): Companion {
    */
   function watch(worker: Worker): void {
     relayWorker = worker;
-    relayState = 'up';
+    setRelayState('up');
     worker.on('error', (e) => { if (relayWorker === worker) log(`docx4j-editor-mcp: the relay failed: ${e.message}`); });
     worker.once('exit', (code) => {
       if (relayWorker !== worker) return;   // stopped by stopRelay, or replaced
@@ -281,12 +327,12 @@ export function createCompanion(options: CompanionOptions): Companion {
       relayStops.push(now);
       while (relayStops.length > 0 && now - relayStops[0]! > 60_000) relayStops.shift();
       if (relayStops.length > 5) {
-        relayState = 'down';
+        setRelayState('down');
         log('docx4j-editor-mcp: the relay stopped five times in a minute and is left down; restart the companion');
         return;
       }
       log(`docx4j-editor-mcp: the relay stopped (exit code ${code}); restarting it on its port`);
-      relayState = 'restarting';
+      setRelayState('restarting');
       relayRestarted = restartRelay();
     });
   }
@@ -305,8 +351,15 @@ export function createCompanion(options: CompanionOptions): Companion {
       }
       reason = started.message ?? '';
     }
-    relayState = 'down';
+    setRelayState('down');
     log(`docx4j-editor-mcp: the relay could not be restarted (${reason}); restart the companion`);
+  }
+
+  /** The relay's state, told to `onRelayState` when it changes; not at a close, which the caller asked for. */
+  function setRelayState(state: 'up' | 'restarting' | 'down'): void {
+    const was = relayState;
+    relayState = state;
+    if (state !== was) options.onRelayState?.(state);
   }
 
   /** Whether the relay is running, waiting for a restart in progress. */
@@ -440,7 +493,7 @@ export function createCompanion(options: CompanionOptions): Companion {
   async function open(path: string): Promise<AgentRoom> {
     if (!server) throw new Error('the companion is not listening');
     if (!(await relayReady())) throw relayDown();
-    const file = await existingUnderRoots(options.roots, path);
+    const file = await existingUnderRoots(roots, path);
     // A room of the file the person has not stopped the agent in answers; else a Stop that covers the file refuses.
     for (const room of rooms.values()) if (room.path === file && !room.stopped) return room;
     for (const [id, stop] of stops) {
@@ -496,8 +549,8 @@ export function createCompanion(options: CompanionOptions): Companion {
       const room = await joinRoom(args.room, args.token);
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ document: room.id, agent: name }));
     } catch (e) {
-      const status = e instanceof InviteError ? e.status : 500;
-      res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: (e as Error).message }));
+      const { status, error } = invitationRefusal(e);
+      res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error }));
     }
   }
 
@@ -525,6 +578,12 @@ export function createCompanion(options: CompanionOptions): Companion {
     },
     open,
     join: joinRoom,
+    setRoots(next: readonly string[]): void { roots = [...next]; },
+    allowOrigin(origin: string): void {
+      if (allowed.has(origin)) return;
+      allowed.add(origin);
+      relayWorker?.postMessage({ type: 'allowOrigin', origin });
+    },
     async close(): Promise<void> {
       for (const room of [...rooms.values()]) await room.close();
       await stopRelay();

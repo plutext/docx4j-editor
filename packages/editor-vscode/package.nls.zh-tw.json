@@ -1,0 +1,20 @@
+{
+  "_status": "draft, not yet reviewed by a native speaker",
+  "displayName": "docx4j editor",
+  "description": "在 VS Code 中編輯 Word 文件：XML 一目瞭然，支援內容控制項和 OpenDoPE 範本、修訂，以及代理程式以自己名義所做的編輯。",
+  "untrusted": "在受限模式下，文件可以開啟和編輯，但不會提供文件中的巨集，也不會啟動代理程式的配套服務。",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor（將 Markdown 當作 Word 文件）",
+  "category": "docx4j editor",
+  "command.newDocument": "新增 Word 文件",
+  "command.newDocument.short": "Word 文件",
+  "command.commands": "命令",
+  "command.pasteText": "貼上為純文字",
+  "command.copyAgentAddress": "複製代理程式的 MCP 位址",
+  "command.join": "加入房間…",
+  "mcp.label": "docx4j editor：代理程式的配套服務",
+  "config.agent.name": "代理程式的名稱：顯示在它的修訂、註解和房間人員清單中。會在配套服務下次啟動時（即下次開啟視窗時）生效。",
+  "command.ask.setKey": "設定 Anthropic API 金鑰…",
+  "command.ask.removeKey": "移除 Anthropic API 金鑰",
+  "config.ask.baseUrl": "「提問」框攜帶您的 Anthropic API 金鑰傳送要求的位址：空白時為 Anthropic 自己的位址（`https://api.anthropic.com`），否則為貴組織執行的 Proxy。此設定只會保存在預設設定檔的使用者設定中，絕不會保存在工作區設定中：金鑰會傳送到此處指定的任何位址。"
+}

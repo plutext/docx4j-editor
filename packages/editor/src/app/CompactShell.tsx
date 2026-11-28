@@ -28,20 +28,21 @@ import { useT } from './i18n.js';
 
 /** What the menu offers; an entry the browser or the document cannot do now is absent or disabled. */
 export interface CompactActions {
-  onOpen: () => void;
-  onNew: () => void;
+  /** Open and New: where the host leaves them to the application (ED-014 section 3.8). */
+  onOpen?: () => void;
+  onNew?: () => void;
   /** Save in place: only where the file has a handle and the option allows it. */
   onSave?: () => void;
   /** Save As: only where the browser has the File System Access pickers. */
   onSaveAs?: () => void;
-  onDownload: () => void;
+  onDownload?: () => void;
   /** Send a copy through the system's share sheet: only where the browser can hand it a file (section 3.8). */
   onSendCopy?: () => void;
   /** Share: only where a relay is configured. */
   onShare?: () => void;
-  onJoin: () => void;
+  onJoin?: () => void;
   onFind: () => void;
-  onClose: () => void;
+  onClose?: () => void;
   onPalette: () => void;
 }
 

@@ -10,14 +10,13 @@
 // expect a `DocxEditorView` over the same session in the same document.
 import { EditorState, type Plugin, type Transaction } from 'prosemirror-state';
 import { EditorView, type NodeViewConstructor, type MarkViewConstructor } from 'prosemirror-view';
-import { keymap } from 'prosemirror-keymap';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { ySyncPlugin, ySyncPluginKey, initProseMirrorDoc } from 'y-prosemirror';
 import type { Node as PMNode } from 'prosemirror-model';
 import { type EditorDocument, type Story, type LiveLabel, sessionPlugin, storyPlugin } from '@docx4j/editor-model';
 import { decorationsPlugin } from './plugins/decorations.js';
 import { invisibleAtomsPlugin } from './plugins/invisibleAtoms.js';
-import { wordKeymap, editorBaseKeymap } from './plugins/keymap.js';
+import { surfaceKeymaps } from './plugins/keymap.js';
 import { labelsPlugin, fixedLabelsPlugin } from './plugins/labels.js';
 import { proofingPlugin } from './proofing.js';
 import { tabStopsPlugin } from './plugins/tabstops.js';
@@ -104,6 +103,8 @@ export class EditableStoryView extends SurfaceBase {
     const fragment = session.stories.fragmentOf(story);
     const { doc, mapping } = initProseMirrorDoc(fragment, session.schema);
     session.undoManager.addTrackedOrigin(ySyncPluginKey);
+    // The keymaps, and the test of the keys they bind that the extension's key gate asks (ED-014 section 4.4).
+    const keys = surfaceKeymaps(options.shortcuts);
     const state = EditorState.create({
       doc,
       plugins: [
@@ -113,9 +114,7 @@ export class EditableStoryView extends SurfaceBase {
         storyPlugin(story),
         proofingPlugin(session),
         invisibleAtomsPlugin(),
-        keymap(Object.fromEntries(Object.entries(options.shortcuts ?? {}).map(([key, fn]) => [key, () => { fn(); return true; }]))),
-        keymap(wordKeymap()),
-        keymap(editorBaseKeymap()),
+        ...keys.plugins,
         // Before the table plugins: a click on a table's top border selects the column, never starts a cell drag (ED-005 section 12.107).
         columnSelectPlugin(),
         ...tablesPlugins(),
@@ -139,7 +138,7 @@ export class EditableStoryView extends SurfaceBase {
       nodeViews: nodeViews(session, (fn) => this.revoke.push(fn), { ...(options.part ? { part: options.part } : {}), ...(options.fields ? { fields: options.fields } : {}) }) as Record<string, NodeViewConstructor>,
       markViews: markViews(session) as Record<string, MarkViewConstructor>,
       attributes: { role: 'textbox', 'aria-multiline': 'true', dir: 'ltr', ...(options.label ? { 'aria-label': options.label } : {}) },
-    });
+    }, keys.binds);
   }
 
   protected afterDocChanged(tr: Transaction, next: EditorState): void {

@@ -1,7 +1,7 @@
 # CI for the editor repository (ED-002 section 3.1): typecheck, build, tests and the licence
 # check, on Node 22, 24 and 26 (ED-001 section 11.1; Node 20 dropped 2026-11-17, past its end of life). The browser
 # suite runs in the Node 22 job only: the browser does not depend on Node's version, and the suite is the longest step
-# (ED-005 section 12.42). The actions are majors that run on the runners' Node 24.
+# (ED-005 section 12.42). So does the VS Code extension's suite (ED-014 P31). The actions are majors that run on the runners' Node 24.
 name: test
 
 on:
@@ -36,6 +36,37 @@ jobs:
         if: matrix.node == 22
         env:
           CI: 'true'
+      # The extension in a real VS Code (ED-014 P31): Playwright over the DevTools Protocol, under xvfb, VS Code downloaded by
+      # @vscode/test-electron into packages/editor-vscode/.vscode-test and cached by its version.
+      - uses: actions/cache@v5
+        if: matrix.node == 22
+        with:
+          path: packages/editor-vscode/.vscode-test
+          key: vscode-1.147.0-${{ runner.os }}
+      - run: xvfb-run -a npm run test:vscode -w docx4j-editor
+        if: matrix.node == 22
+        env:
+          CI: 'true'
+          DOCX4J_VSCODE_VERSION: '1.147.0'
+      # The VSIX (ED-014 section 4.7, P47), packaged over the build above and checked by its script, kept so that any
+      # commit's can be installed by hand, a commit whose suite failed included. A release publishes the public commit's
+      # (S8), never packaging again.
+      - run: npm run package -w docx4j-editor
+        if: matrix.node == 22 && !cancelled()
+      - uses: actions/upload-artifact@v7
+        if: matrix.node == 22 && !cancelled()
+        with:
+          name: vsix
+          path: packages/editor-vscode/*.vsix
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: failure() && matrix.node == 22
+        with:
+          name: vscode-suite
+          path: |
+            packages/editor-vscode/test-results
+            packages/editor-vscode/playwright-report
+          if-no-files-found: ignore
       # The benchmark's figures (ED-002 section 7.5): reported, never gating.
       - uses: actions/upload-artifact@v7
         if: always() && matrix.node == 22

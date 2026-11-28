@@ -1,0 +1,19 @@
+{
+  "displayName": "docx4j editor",
+  "description": "Edit Word documents in VS Code: the XML in view, content controls and OpenDoPE templates, tracked changes, and an agent's edits under its own name.",
+  "untrusted": "In Restricted Mode, documents open and can be edited, but a document's macros are not offered and the agent's companion is not started.",
+  "editor.word": "docx4j editor",
+  "editor.markdown": "docx4j editor (Markdown as a Word document)",
+  "category": "docx4j editor",
+  "command.newDocument": "New Word Document",
+  "command.newDocument.short": "Word Document",
+  "command.commands": "Commands",
+  "command.pasteText": "Paste as Plain Text",
+  "command.copyAgentAddress": "Copy the Agent's MCP Address",
+  "command.join": "Join a Room…",
+  "mcp.label": "docx4j editor: the agent's companion",
+  "config.agent.name": "The agent's name: on its tracked changes, its comments and in the People list. It takes effect at the companion's next start, the next time the window opens.",
+  "command.ask.setKey": "Set the Anthropic API Key…",
+  "command.ask.removeKey": "Remove the Anthropic API Key",
+  "config.ask.baseUrl": "The address the Ask box sends to with your Anthropic API key: Anthropic's own (`https://api.anthropic.com`) when empty, else a proxy your organisation runs. Only your user settings hold it, in the Default profile, never a workspace's: the key goes wherever this says."
+}
